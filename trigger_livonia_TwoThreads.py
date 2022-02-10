@@ -12,13 +12,13 @@ Thread 1: Sends 'T1' to the Keyence then reads the '%Busy' tag until LOW (scan c
 Thread 2: Sends 'TE,0' then 'TE,1' to CANCEL the currently running scan and sets Keyence to a state that will accept a new 'T1'
 '''
 
-# global variable declarations
+# global variable declarations, some are probably unnecessary(?)
 trigger_count = 0
 slow_count = 0
 longest_time = 0
 
 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-sock.connect(('192.168.1.83', 8500))
+sock.connect(('192.168.1.83', 8500)) # 'sock' is the connection variable used to communicate with the Keyence
 
 lock = threading.Lock()
 
@@ -29,59 +29,52 @@ def TriggerKeyence(sock, item):
     global slow_count
     global longest_time
 
-    try:
-        message = item
-        trigger_start_time = datetime.datetime.now() # marking when 'T1' is sent
-        with lock:
-            sock.sendall(message.encode())
-            data = sock.recv(32)
-            print('received "%s"' % data)
+    message = item
+    trigger_start_time = datetime.datetime.now() # marking when 'T1' is sent
+    with lock:
+        sock.sendall(message.encode())
+        data = sock.recv(32)
+        print('received "%s"' % data)
 
-        #am I using these right?(!)
+    #am I using these right?(!)
+    with lock:
+        message = 'MR,%Busy\r\n' #initial read of '%Busy' to ensure scan is actually taking place (%Busy == 1)
+        sock.sendall(message.encode())
+        data = sock.recv(32)
+        #print(data)
+    trigger_end_time = datetime.datetime.now() # marking when '%Busy' is read off Keyence
+    time_diff = (trigger_end_time - trigger_start_time)
+    execution_time = time_diff.total_seconds() * 1000
+    print(f'\n\'T1\' sent to \'%Busy\' read in: {execution_time} ms')
+    if(execution_time > longest_time):
+        longest_time = execution_time
+
+    # looping until '%Busy' == 0
+    while(data != b'MR,+0000000000.000000\r'):
+        # utilizing 'with' to use thread lock
         with lock:
             message = 'MR,%Busy\r\n'
             sock.sendall(message.encode())
             data = sock.recv(32)
-            #print(data)
-        trigger_end_time = datetime.datetime.now() # marking when '%Busy' is read off Keyence
-        time_diff = (trigger_end_time - trigger_start_time)
-        execution_time = time_diff.total_seconds() * 1000
-        print(f'\n\'T1\' sent to \'%Busy\' read in: {execution_time} ms')
-        if(execution_time > longest_time):
-            longest_time = execution_time
+            print('TriggerKeyence: received "%s"' % data)
+        #print('Scanning...')
+        time.sleep(.5)
+#END 'TriggerKeyence'
 
-        # looping until busy on Keyence is low (0)
-        while(data != b'MR,+0000000000.000000\r'):
-            # utilizing 'with' to use thread lock
-            with lock:
-                message = 'MR,%Busy\r\n'
-                sock.sendall(message.encode())
-                data = sock.recv(32)
-                print('TriggerKeyence: received "%s"' % data)
-            #print('Scanning...')
-            time.sleep(.5)
-
-    finally:
-        pass
-        #print()
-
-# sends 'TE,0' then 'TE,1' to the Keyence
+# sends 'TE,0' then 'TE,1' to the Keyence, resetting to original state (ready for new 'T1')
 def ExtKeyence(sock, item, item_reset):
-    try:
-        message = item
-        with lock:
-            sock.sendall(message.encode()) # sending TE,0
-            print('\n\'TE,0\' Sent!')
+    message = item # setting 'TE,0' first
+    with lock:
+        sock.sendall(message.encode()) # sending TE,0
+        print('\n\'TE,0\' Sent!')
 
-            message = item_reset
-            sock.sendall(message.encode()) # sending, TE,1
-            print('\'TE,1\' Sent!')
+        message = item_reset # setting 'TE,1' to reset
+        sock.sendall(message.encode()) # sending, TE,1
+        print('\'TE,1\' Sent!')
 
-            data = sock.recv(32)
-            #print('received "%s"' % data)
-    finally:
-        #print()
-        pass
+        #data = sock.recv(32)
+        #print('received "%s"' % data)
+# END 'ExtKeyence'
 
 
 #START main()
@@ -105,11 +98,11 @@ def main():
 
     print(f'\n*Longest Time*: {longest_time}\n')
     #print('End main()')
-
+#END 'main'
 
 #implicit 'main()' declaration
 if __name__ == '__main__':
     for x in range(3):
         print(f'Main Loop {x}')
         main()
-        time.sleep(3)
+        #time.sleep(3) # time between cycles to eyeball if multiple scans are actually taking place
