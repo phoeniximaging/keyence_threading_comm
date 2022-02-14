@@ -3,6 +3,7 @@ import json
 import time
 import os
 
+
 def csv_read():
     #csv file reader variable declaration
     #file = open('\\phoenix-101\homes\Howard.Roush\Drive\plc_dummy.csv') #Python doesn't like \\
@@ -29,11 +30,30 @@ def csv_read():
     return plc_dict
 #END csv_read
 
+# Writes back to .csv (plc) with current tag values
+def csv_write(results):
+    header = []
+    values = []
+    file = open('//phoenix-101/homes/Howard.Roush/Drive/plc_dummy.csv', 'w', newline='')
+    csv_writer = csv.writer(file)
+
+    for key in results:
+        header.append(key)
+        values.append(results[key])
+
+    csv_writer.writerow(header)
+    csv_writer.writerow(values)
+
 def main():
     while(True):
         csv_results = csv_read()
         print(csv_results)
-        time.sleep(3)
+        csv_results['LOAD_PROGRAM'] = 1
+        time.sleep(1)
+        csv_write(csv_results)
+        #csv_results = csv_read()
+        #print(csv_results)
+
 
 if __name__ == '__main__':
     main()

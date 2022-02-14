@@ -1,6 +1,7 @@
 import threading
 import datetime, time
 import socket
+import csv
 
 '''
 This is the latest working example of threading communication with the Keyence (2.10.2022).
@@ -76,9 +77,48 @@ def ExtKeyence(sock, item, item_reset):
         #print('received "%s"' % data)
 # END 'ExtKeyence'
 
+# function to read in .csv file emulating plc from phoenix-101
+def csv_read():
+    #csv file reader variable declaration
+    #file = open('\\phoenix-101\homes\Howard.Roush\Drive\plc_dummy.csv') #Python doesn't like \\
+    file = open('//phoenix-101/homes/Howard.Roush/Drive/plc_dummy.csv')
+    csvreader = csv.reader(file)
+
+    #creating two lists that will be combined in the dictionary 'plc_dict'
+    header = []
+    header = next(csvreader) # tag names
+    values = []
+    values = next(csvreader) # values
+
+    #print(len(header))
+    #print(values)
+
+    plc_dict = {} # dictionary: key = tag name
+    #setting relevant value for each tag
+    for x in range(len(header)):
+        plc_dict[header[x]] = int(values[x]) #populating dict, casting to int for simplicity
+
+    #print(plc_dict)
+    #print()
+    #print(type(plc_dict['LOAD_PROGRAM']))
+    return plc_dict
+#END csv_read
+
 
 #START main()
 def main():
+
+    #reading in .csv plc emulator for initial values
+    csv_results = csv_read()
+    #print(csv_results)
+
+    print('Listening for \'START_PROGRAM\' = 1')
+    #reading .csv until START_PROGRAM goes high
+    while(csv_results['START_PROGRAM'] == 0):
+        csv_results = csv_read()
+        #print(csv_results)
+        time.sleep(1)
+
     #declaring threads, does not run
     t1 = threading.Thread(target=TriggerKeyence, args=[sock, 'T1\r\n']) #thread1, passing in socket connection and 'T1' keyence command
     t2 = threading.Thread(target=ExtKeyence, args=[sock, 'TE,0\r\n', 'TE,1\r\n']) #thread2, uses 'TE,0' and 'TE,1' to cancel while scanning and reset to original state
@@ -102,7 +142,7 @@ def main():
 
 #implicit 'main()' declaration
 if __name__ == '__main__':
-    for x in range(3):
+    for x in range(1000):
         print(f'Main Loop {x}')
         main()
         #time.sleep(3) # time between cycles to eyeball if multiple scans are actually taking place
