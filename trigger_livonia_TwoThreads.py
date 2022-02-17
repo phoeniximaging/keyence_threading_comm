@@ -18,6 +18,8 @@ trigger_count = 0
 slow_count = 0
 longest_time = 0
 
+current_stage = 0
+
 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 sock.connect(('192.168.1.83', 8500)) # 'sock' is the connection variable used to communicate with the Keyence
 
@@ -126,31 +128,72 @@ def csv_write(results):
 
 #START main()
 def main():
-
-    #reading in .csv plc emulator for initial values
-    #split into two .csv files, representing each direction of traffic between PLC and Phoenix
-    csv_results = csv_read('o') #holds PHOENIX tags / data
-    csv_results_plc = csv_read('i') #holds PLC (Grob) tags / data
+    global current_stage #keeps track of which stage program is currently in from the timing process
 
     while(True):
-        print('Stage 1 : Listening for \'LOAD_PROGRAM\' = 1 from PLC')
-        #reading .csv until LOAD_PROGRAM goes high
-        while(csv_results_plc['LOAD_PROGRAM'] != 1):
-            csv_results_plc = csv_read('i')
-            #print(csv_results)
-            time.sleep(1)
+        #reading in .csv plc emulator for initial values
+        #split into two .csv files, representing each direction of traffic between PLC and Phoenix
+        csv_results = csv_read('o') #holds PHOENIX tags / data
+        csv_results_plc = csv_read('i') #holds PLC (Grob) tags / data
 
-        print('PLC(LOAD_PROGRAM) went high!')
-        # Once PLC(LOAD_PROGRAM) goes high, mirror data and set Phoenix(READY) high, signifies end of "loading" process
-        csv_results['READY'] = 0 # LOAD is high, so READY goes low
-        csv_write(csv_results)
-        print('Dropping Phoenix(READY) low.')
-        print('!Mirroring Data!')
-        time.sleep(3) #artificial pause to see step happening in testing
-        print('Data Mirrored, Setting \'READY\' high')
-        csv_results['READY'] = 1
-        csv_write(csv_results)
-        time.sleep(3)
+        #STAGE0 CHECK HERE
+        if(current_stage == 0):
+            print('Stage 0 : Listening for PLC(LOAD_PROGRAM) = 1')
+            #reading .csv until LOAD_PROGRAM goes high
+            while(csv_results_plc['LOAD_PROGRAM'] != 1):
+                csv_results_plc = csv_read('i')
+                #print(csv_results)
+                time.sleep(1)
+
+            print('PLC(LOAD_PROGRAM) went high!')
+            # Once PLC(LOAD_PROGRAM) goes high, mirror data and set Phoenix(READY) high, signifies end of "loading" process
+            csv_results['READY'] = 0 # LOAD is high, so READY goes low
+            csv_write(csv_results)
+            print('Dropping Phoenix(READY) low.')
+
+            #TODO Actually Mirror Data (write back to PLC)
+            print('!Mirroring Data!')
+            csv_results['DATA'] = csv_results_plc['DATA']
+            time.sleep(3) #artificial pause to see step happening in testing
+            print('Data Mirrored, Setting \'READY\' high')
+
+            csv_results['READY'] = 1
+            csv_write(csv_results)
+            time.sleep(3)
+            current_stage += 1 #incrementing out of STAGE0
+        #END STAGE0
+        #START STAGE1 : START/END Program
+        elif(current_stage == 1):
+            print('Stage 1!\nListening for PLC(START_PROGRAM) = 1')
+            time.sleep(3)
+            if(csv_results_plc['START_PROGRAM'] == 1):
+                print('PLC(START_PROGRAM) went high! Time to trigger Keyence...')
+                #TODO TRIGGER KEYENCE
+                csv_results['BUSY'] = 1
+                csv_write(csv_results)
+                print('PHOENIX(BUSY) is high...pretend scanning here')
+                time.sleep(20)
+                csv_results['BUSY'] = 0
+                csv_write(csv_results)
+                print('Pretend scan ended! PHOENIX(BUSY) is low')
+                #TODO PASS/FAIL RESULTS
+                print('*This is where PASS/FAIL data would be written out*')
+                print('PHOENIX(DONE) = 1')
+                csv_results['DONE'] = 1
+                csv_write(csv_results)
+                print('Stage 1 Complete!')
+                current_stage += 1
+                time.sleep(10)
+            
+        elif(current_stage == 2):
+            print('Stage 2 : Listening to PLC(END_PROGRAM) low to reset back to Stage 0')
+            if(csv_results_plc['END_PROGRAM'] == 1):
+                print('PLC(END_PROGRAM) is high. Dropping PHOENIX(DONE) low')
+                csv_results['DONE'] = 0
+                csv_write(csv_results)
+            if(csv_results_plc['END_PROGRAM'] == 0):
+                print('PLC(END_PROGRAM) is low. Resetting PHOENIX to Stage 0')
+                current_stage = 0 # cycle complete, reset to stage 0
 
 
     #BEGIN THREADING TRIGGER KEYENCE
