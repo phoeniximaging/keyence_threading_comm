@@ -64,6 +64,16 @@ def TriggerKeyence(sock, item):
         time.sleep(.5)
 #END 'TriggerKeyence'
 
+#sends specific Keyence Program (branch) info to pre-load/prepare Keyence for Trigger(T1)
+def LoadKeyence(sock, item):
+    print('LOADING KEYENCE')
+    message = item # setting 'TE,0' first
+    with lock:
+        sock.sendall(message.encode()) # sending TE,0
+        print(f'\n\'{item}\' Sent!')
+        data = sock.recv(32)
+        print('received "%s"' % data)
+
 # sends 'TE,0' then 'TE,1' to the Keyence, resetting to original state (ready for new 'T1')
 def ExtKeyence(sock, item, item_reset):
     message = item # setting 'TE,0' first
@@ -151,6 +161,10 @@ def main():
             csv_write(csv_results)
             print('Dropping Phoenix(READY) low.')
 
+            #TODO Send branch data to load Keyence for scan
+            LoadKeyence(sock,'MW,#PhoenixControlFaceBranch,2\r\n') #example message with branch#2 passed into Keyence
+            print('Keyence Loaded!')
+
             #TODO Actually Mirror Data (write back to PLC)
             print('!Mirroring Data!')
             csv_results['DATA'] = csv_results_plc['DATA']
@@ -171,8 +185,13 @@ def main():
                 #TODO TRIGGER KEYENCE
                 csv_results['BUSY'] = 1
                 csv_write(csv_results)
-                print('PHOENIX(BUSY) is high...pretend scanning here')
-                time.sleep(20)
+                #TODO Actual Keyence Trigger (T1) here***
+                TriggerKeyence(sock, 'T1\r\n')
+
+                # Pretend to scan if Keyence not available
+                #print('PHOENIX(BUSY) is high...pretend scanning here')
+                #time.sleep(20)
+
                 csv_results['BUSY'] = 0
                 csv_write(csv_results)
                 print('Pretend scan ended! PHOENIX(BUSY) is low')
