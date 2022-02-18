@@ -180,20 +180,25 @@ def main():
                 print('*This is where PASS/FAIL data would be written out*')
                 print('PHOENIX(DONE) = 1')
                 csv_results['DONE'] = 1
+                csv_results['DATA'] = 0
                 csv_write(csv_results)
                 print('Stage 1 Complete!')
                 current_stage += 1
-                time.sleep(10)
+                time.sleep(3)
             
+        #Final Stage, reset to Stage 0 once PLC(END_PROGRAM) and PHOENIX(DONE) have been set low
         elif(current_stage == 2):
             print('Stage 2 : Listening to PLC(END_PROGRAM) low to reset back to Stage 0')
             if(csv_results_plc['END_PROGRAM'] == 1):
                 print('PLC(END_PROGRAM) is high. Dropping PHOENIX(DONE) low')
                 csv_results['DONE'] = 0
                 csv_write(csv_results)
-            if(csv_results_plc['END_PROGRAM'] == 0):
+                
+            if(csv_results_plc['END_PROGRAM'] == 0 and csv_results['DONE'] == 0):
                 print('PLC(END_PROGRAM) is low. Resetting PHOENIX to Stage 0')
                 current_stage = 0 # cycle complete, reset to stage 0
+            
+            time.sleep(1)
 
 
     #BEGIN THREADING TRIGGER KEYENCE
