@@ -413,41 +413,35 @@ def main():
             #START STAGE1 : START/END Program
             elif(current_stage == 1):
                 print('Stage 1!\nListening for PLC(START_PROGRAM) = 1')
-                time.sleep(3)
-                if(csv_results_plc['START_PROGRAM'] == 1):
+                time.sleep(.01) #10ms artificial delay for testing
+                if(results_14_dict['StartProgram'][1] == True):
                     print('PLC(START_PROGRAM) went high! Time to trigger Keyence...')
-                    #TODO TRIGGER KEYENCE
-                    csv_results['BUSY'] = 1
-                    csv_write(csv_results)
-                    #TODO Actual Keyence Trigger (T1) here***
+                    plc.write('Program:HM1450_VS14.VPC1.I.Busy', True) #Busy goes HIGH while Keyence is scanning
+
+                    #Actual Keyence Trigger (T1) here***
                     TriggerKeyence(sock, 'T1\r\n')
 
-                    # Pretend to scan if Keyence not available
-                    #print('PHOENIX(BUSY) is high...pretend scanning here')
-                    #time.sleep(20)
-
-                    csv_results['BUSY'] = 0
-                    csv_write(csv_results)
                     print('Pretend scan ended! PHOENIX(BUSY) is low')
+                    plc.write('Program:HM1450_VS14.VPC1.I.Busy', False)
+
                     #TODO PASS/FAIL RESULTS
-                    print('*This is where PASS/FAIL data would be written out*')
-                    print('PHOENIX(DONE) = 1')
-                    csv_results['DONE'] = 1
-                    csv_results['DATA'] = 0
-                    csv_write(csv_results)
+                    print('PASS/FAIL/DONE data written out')
+                    plc.write(('Program:HM1450_VS14.VPC1.I.Pass', True),
+                    'Program:HM1450_VS14.VPC1.I.Done', True)
+                    print('PHOENIX(PASS) and PHOENIX(DONE) = 1')
                     print('Stage 1 Complete!')
                     current_stage += 1
-                    time.sleep(3)
+                    time.sleep(1)
                 
             #Final Stage, reset to Stage 0 once PLC(END_PROGRAM) and PHOENIX(DONE) have been set low
             elif(current_stage == 2):
+                done_check = plc.read('Program:HM1450_VS14.VPC1.I.Done')
                 print('Stage 2 : Listening to PLC(END_PROGRAM) low to reset back to Stage 0')
-                if(csv_results_plc['END_PROGRAM'] == 1):
+                if(results_14_dict['EndProgram'][1] == True):
                     print('PLC(END_PROGRAM) is high. Dropping PHOENIX(DONE) low')
-                    csv_results['DONE'] = 0
-                    csv_write(csv_results)
+                    plc.write('Program:HM1450_VS14.VPC1.I.Done', False)
                     
-                if(csv_results_plc['END_PROGRAM'] == 0 and csv_results['DONE'] == 0):
+                if(results_14_dict['EndProgram'][1] == False and done_check[1] == False):
                     print('PLC(END_PROGRAM) is low. Resetting PHOENIX to Stage 0')
                     current_stage = 0 # cycle complete, reset to stage 0
                 
