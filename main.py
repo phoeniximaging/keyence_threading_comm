@@ -9,9 +9,11 @@ import json
 import os
 
 '''
-This is the first testing thread for Elwema using threading and an all-in-one Python program.
+This is the first testing thread for Grob using threading and an all-in-one Python program.
 
-Progresses through the timing diagram based on tag values read off Elwema's PLC. Loads and Triggers Keyence.
+Progresses through the timing diagram based on tag values read off Grobs's PLC. Loads and Triggers Keyence.
+
+*** Only reads 'CAM01' PLC tags and communicates with Keyence#1 (172.19.147.82)
 '''
 
 trigger_count = 0
