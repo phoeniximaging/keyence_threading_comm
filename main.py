@@ -36,9 +36,10 @@ arrayOutTags = [
     'RESET',
     'PART_TYPE',
     'PART_PROGRAM',
+    #'SCAN_NUMBER',
     'PUN{64}',
     'MODULE',
-    'PLANTCODE',
+    #'PLANTCODE',
     'TIMESTAMP_MONTH',
     'TIMESTAMP_DAY',
     'TIMESTAMP_YEAR',
@@ -72,7 +73,8 @@ tagStringInt = [
 
 tagInt = [
     'PART_TYPE',
-    'PART_PROGRAM'
+    'PART_PROGRAM',
+    'SCAN_NUMBER'
     ];
 
 tagChar = [
@@ -110,19 +112,18 @@ def write_plc(plc, machine_num, results):
     #logging how long the 'read' takes
     start_time = datetime.datetime.now()
 
-    plc.write(('Program:CM080CA01.PorosityInspect.CAM0' + machine_num + '.I.PartType', results['PartType'][1]),
-    ('Program:CM080CA01.PorosityInspect.CAM0' + machine_num + '.I.PartProgram', results['PartProgram'][1]),
-    ('Program:CM080CA01.PorosityInspect.CAM0' + machine_num + '.I.ScanNumber', results['ScanNumber'][1]),
+    plc.write(('Program:CM080CA01.PorosityInspect.CAM0' + machine_num + '.I.PART_TYPE', results['PART_TYPE'][1]),
+    ('Program:CM080CA01.PorosityInspect.CAM0' + machine_num + '.I.PART_PROGRAM', results['PART_PROGRAM'][1]),
+    #('Program:CM080CA01.PorosityInspect.CAM0' + machine_num + '.I.SCAN_NUMBER', results['SCAN_NUMBER'][1]),
     ('Program:CM080CA01.PorosityInspect.CAM0' + machine_num + '.I.PUN{64}', results['PUN'][1]),
-    ('Program:CM080CA01.PorosityInspect.CAM0' + machine_num + '.I.GMPartNumber{8}', results['GMPartNumber'][1]),
-    ('Program:CM080CA01.PorosityInspect.CAM0' + machine_num + '.I.Module', results['Module'][1]),
-    ('Program:CM080CA01.PorosityInspect.CAM0' + machine_num + '.I.PlantCode', results['PlantCode'][1]),
-    ('Program:CM080CA01.PorosityInspect.CAM0' + machine_num + '.I.Month', results['Month'][1]),
-    ('Program:CM080CA01.PorosityInspect.CAM0' + machine_num + '.I.Day', results['Day'][1]),
-    ('Program:CM080CA01.PorosityInspect.CAM0' + machine_num + '.I.Year', results['Year'][1]),
-    ('Program:CM080CA01.PorosityInspect.CAM0' + machine_num + '.I.Hour', results['Hour'][1]),
-    ('Program:CM080CA01.PorosityInspect.CAM0' + machine_num + '.I.Minute', results['Minute'][1]),
-    ('Program:CM080CA01.PorosityInspect.CAM0' + machine_num + '.I.Second', results['Second'][1])
+    ('Program:CM080CA01.PorosityInspect.CAM0' + machine_num + '.I.MODULE', results['MODULE'][1]),
+    #('Program:CM080CA01.PorosityInspect.CAM0' + machine_num + '.I.PLANTCODE', results['PLANTCODE'][1]),
+    ('Program:CM080CA01.PorosityInspect.CAM0' + machine_num + '.I.TIMESTAMP_MONTH', results['TIMESTAMP_MONTH'][1]),
+    ('Program:CM080CA01.PorosityInspect.CAM0' + machine_num + '.I.TIMESTAMP_DAY', results['TIMESTAMP_DAY'][1]),
+    ('Program:CM080CA01.PorosityInspect.CAM0' + machine_num + '.I.TIMESTAMP_YEAR', results['TIMESTAMP_YEAR'][1]),
+    ('Program:CM080CA01.PorosityInspect.CAM0' + machine_num + '.I.TIMESTAMP_HOUR', results['TIMESTAMP_HOUR'][1]),
+    ('Program:CM080CA01.PorosityInspect.CAM0' + machine_num + '.I.TIMESTAMP_MINUTE', results['TIMESTAMP_MINUTE'][1]),
+    ('Program:CM080CA01.PorosityInspect.CAM0' + machine_num + '.I.TIMESTAMP_SECOND', results['TIMESTAMP_SECOND'][1])
     )
 
     end_time = datetime.datetime.now()
@@ -211,10 +212,20 @@ def main():
             csv_results = {}
 
             results_14_dict = read_plc_dict(plc, '1') #initial PLC tag read for 'robot 14' values
-            print(results_14_dict['LOAD_PROGRAM'][1]) #how to print the value of one specific tag
+            #print(results_14_dict['LOAD_PROGRAM'][1]) #how to print the value of one specific tag
 
             #STAGE0 CHECK HERE
             if(current_stage == 0):
+                #setting Phoenix(READY) high and BUSY, DONE, PASS, FAIL low to enforce starting state of booleans
+                print('Stage 0 : Setting Boolean Flags to beginning state')
+                plc.write(
+                ('Program:CM080CA01.PorosityInspect.CAM01.I.READY', True),
+                ('Program:CM080CA01.PorosityInspect.CAM01.I.BUSY', False),
+                ('Program:CM080CA01.PorosityInspect.CAM01.I.DONE', False),
+                ('Program:CM080CA01.PorosityInspect.CAM01.I.PASS', False),
+                ('Program:CM080CA01.PorosityInspect.CAM01.I.FAIL', False)
+                )
+
                 print('Stage 0 : Listening for PLC(LOAD_PROGRAM) = 1')
                 #reading PLC until LOAD_PROGRAM goes high
                 while(results_14_dict['LOAD_PROGRAM'][1] != True):
@@ -248,17 +259,18 @@ def main():
 
                 #TODO Actually Mirror Data (write back to PLC)
                 print('!Mirroring Data!')
-                write_plc(plc,'14',results_14_dict) #writing back mirrored values to PLC to confirm LOAD has been processed / sent to Keyence
+                write_plc(plc,'1',results_14_dict) #writing back mirrored values to PLC to confirm LOAD has been processed / sent to Keyence
                 #csv_results['DATA'] = csv_results_plc['DATA']
                 time.sleep(1) #artificial pause to see step happening in testing
                 print('Data Mirrored, Setting \'READY\' high')
                 plc.write('Program:CM080CA01.PorosityInspect.CAM01.I.READY', True)
                 time.sleep(3)
+                print('Stage 0 Complete!\nStart Stage 1!\nListening for PLC(START_PROGRAM) = 1')
                 current_stage += 1 #incrementing out of STAGE0
             #END STAGE0
             #START STAGE1 : START/END Program
             elif(current_stage == 1):
-                print('Stage 1!\nListening for PLC(START_PROGRAM) = 1')
+                #print('Stage 1!\nListening for PLC(START_PROGRAM) = 1')
                 time.sleep(.01) #10ms artificial delay for testing
                 if(results_14_dict['START_PROGRAM'][1] == True):
                     print('PLC(START_PROGRAM) went high! Time to trigger Keyence...')
@@ -272,8 +284,10 @@ def main():
 
                     #TODO PASS/FAIL RESULTS
                     print('PASS/FAIL/DONE data written out')
-                    plc.write(('Program:CM080CA01.PorosityInspect.CAM01.I.PASS', True),
-                    'Program:CM080CA01.PorosityInspect.CAM01.I.DONE', True)
+                    plc.write(
+                        ('Program:CM080CA01.PorosityInspect.CAM01.I.PASS', True),
+                        ('Program:CM080CA01.PorosityInspect.CAM01.I.DONE', True)
+                    )
                     print('PHOENIX(PASS) and PHOENIX(DONE) = 1')
                     print('Stage 1 Complete!')
                     current_stage += 1
