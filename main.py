@@ -329,9 +329,9 @@ def TriggerKeyence(sock, item):
 #sends specific Keyence Program (branch) info to pre-load/prepare Keyence for Trigger(T1)
 def LoadKeyence(sock, item):
     print('LOADING KEYENCE')
-    message = item # setting 'TE,0' first
+    message = item # keyence message
     with lock:
-        sock.sendall(message.encode()) # sending TE,0
+        sock.sendall(message.encode()) # sending branch info
         print(f'\n\'{item}\' Sent!')
         data = sock.recv(32)
         print('received "%s"' % data)
@@ -366,9 +366,27 @@ def main():
 
             results_14_dict = read_plc_dict(plc, '14') #initial PLC tag read for 'robot 14' values
             #print(results_14_dict['LoadProgram'][1]) #how to print the value of one specific tag
+            result_ready = plc.read('Program:HM1450_VS14.VPC1.I.Ready')
+            print(str(result_ready))
 
             #STAGE0 CHECK HERE
             if(current_stage == 0):
+                print('Setting Boolean Flags to Stage 0')
+                plc.write(
+                ('Program:HM1450_VS14.VPC1.I.Ready', True),
+                ('Program:HM1450_VS14.VPC1.I.Busy', False),
+                ('Program:HM1450_VS14.VPC1.I.Done', False),
+                ('Program:HM1450_VS14.VPC1.I.Pass', False),
+                ('Program:HM1450_VS14.VPC1.I.Fail', False)
+                )
+                while(result_ready[1] != True):
+                    print(result_ready)
+                    plc.write('Program:HM1450_VS14.VPC1.I.Ready', True)
+                    plc.write('Program:HM1450_VS15.VPC1.I.Ready', True)
+                    print('Wrote Phoenix(READY) high!')
+                    result_ready = plc.read('Program:HM1450_VS14.VPC1.I.Ready')
+                    print(result_ready)
+                    time.sleep(3)
                 print('Stage 0 : Listening for PLC(LOAD_PROGRAM) = 1')
                 #reading PLC until LOAD_PROGRAM goes high
                 while(results_14_dict['LoadProgram'][1] != True):
@@ -426,8 +444,10 @@ def main():
 
                     #TODO PASS/FAIL RESULTS
                     print('PASS/FAIL/DONE data written out')
-                    plc.write(('Program:HM1450_VS14.VPC1.I.Pass', True),
-                    'Program:HM1450_VS14.VPC1.I.Done', True)
+                    plc.write(
+                        ('Program:HM1450_VS14.VPC1.I.Pass', True),
+                        ('Program:HM1450_VS14.VPC1.I.Done', True)
+                    )
                     print('PHOENIX(PASS) and PHOENIX(DONE) = 1')
                     print('Stage 1 Complete!')
                     current_stage += 1

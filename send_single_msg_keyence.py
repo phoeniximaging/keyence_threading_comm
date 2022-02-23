@@ -37,9 +37,9 @@ def TriggerKeyence(sock, item):
 def main():
     global current_stage #keeps track of which stage program is currently in from the timing process
 
-    #test_msg = 'MW,#PhoenixControlFaceBranch,2\r\n' #test LOAD msg
+    test_msg = 'MW,#PhoenixControlFaceBranch,2\r\n' #test LOAD msg
     #test_msg = 'STW,0,"LOL123ABCDBLAHBLAH***-CoverFace-2-625T\r\n' #test LOAD msg
-    test_msg = 'T1\r\n'
+    #test_msg = 'T1\r\n'
     TriggerKeyence(sock,test_msg)
     time.sleep(30)
 
