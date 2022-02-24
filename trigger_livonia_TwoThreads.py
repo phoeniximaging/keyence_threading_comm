@@ -18,7 +18,7 @@ trigger_count = 0
 slow_count = 0
 longest_time = 0
 
-current_stage = 0
+current_stage = -1
 
 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 sock.connect(('192.168.1.83', 8500)) # 'sock' is the connection variable used to communicate with the Keyence
@@ -114,7 +114,7 @@ def csv_read(io):
             #setting relevant value for each tag
             for x in range(len(header)):
                 plc_dict[header[x]] = int(values[x]) #populating dict, casting to int for simplicity
-                
+
         except Exception as e:
             print(f'EXCEPTION : {e}')
 
@@ -154,6 +154,17 @@ def main():
         #split into two .csv files, representing each direction of traffic between PLC and Phoenix
         csv_results = csv_read('o') #holds PHOENIX tags / data
         csv_results_plc = csv_read('i') #holds PLC (Grob) tags / data
+
+        if(current_stage == -1):
+            csv_results['READY'] = 1
+            csv_results['BUSY'] = 0
+            csv_results['DONE'] = 0
+            csv_results['PASS'] = 0
+            csv_results['FAIL'] = 0
+            csv_results['DATA'] = 0
+            csv_write(csv_results)
+            print(f'Stage {current_stage} : Writing Default Starting Values to Phoenix tags')
+            current_stage += 1
 
         #STAGE0 CHECK HERE
         if(current_stage == 0):
