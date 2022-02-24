@@ -100,19 +100,28 @@ def csv_read(io):
         file = open('//phoenix-101/homes/Howard.Roush/Drive/plc_to_phoenix.csv')
     csvreader = csv.reader(file)
 
-    #creating two lists that will be combined in the dictionary 'plc_dict'
-    header = []
-    header = next(csvreader) # tag names
-    values = []
-    values = next(csvreader) # values
+    plc_dict = {}
+
+    while(len(plc_dict) == 0):
+        try:
+            #creating two lists that will be combined in the dictionary 'plc_dict'
+            header = []
+            header = next(csvreader) # tag names
+            values = []
+            values = next(csvreader) # values
+
+            #plc_dict = {} # dictionary: key = tag name
+            #setting relevant value for each tag
+            for x in range(len(header)):
+                plc_dict[header[x]] = int(values[x]) #populating dict, casting to int for simplicity
+                
+        except Exception as e:
+            print(f'EXCEPTION : {e}')
 
     #print(len(header))
     #print(values)
 
-    plc_dict = {} # dictionary: key = tag name
-    #setting relevant value for each tag
-    for x in range(len(header)):
-        plc_dict[header[x]] = int(values[x]) #populating dict, casting to int for simplicity
+    
 
     #print(plc_dict)
     #print()
@@ -148,6 +157,7 @@ def main():
 
         #STAGE0 CHECK HERE
         if(current_stage == 0):
+            time.sleep(1)
             print('Stage 0 : Listening for PLC(LOAD_PROGRAM) = 1')
             #reading .csv until LOAD_PROGRAM goes high
             while(csv_results_plc['LOAD_PROGRAM'] != 1):
@@ -168,7 +178,7 @@ def main():
             #TODO Actually Mirror Data (write back to PLC)
             print('!Mirroring Data!')
             csv_results['DATA'] = csv_results_plc['DATA']
-            time.sleep(3) #artificial pause to see step happening in testing
+            #time.sleep(3) #artificial pause to see step happening in testing
             print('Data Mirrored, Setting \'READY\' high')
 
             csv_results['READY'] = 1
@@ -190,7 +200,7 @@ def main():
 
                 # Pretend to scan if Keyence not available
                 #print('PHOENIX(BUSY) is high...pretend scanning here')
-                #time.sleep(20)
+                time.sleep(5)
 
                 csv_results['BUSY'] = 0
                 csv_write(csv_results)
@@ -207,16 +217,18 @@ def main():
             
         #Final Stage, reset to Stage 0 once PLC(END_PROGRAM) and PHOENIX(DONE) have been set low
         elif(current_stage == 2):
-            print('Stage 2 : Listening to PLC(END_PROGRAM) low to reset back to Stage 0')
+            print('Stage 2 : Listening to PLC(END_PROGRAM) high to reset back to Stage 0')
             if(csv_results_plc['END_PROGRAM'] == 1):
                 print('PLC(END_PROGRAM) is high. Dropping PHOENIX(DONE) low')
                 csv_results['DONE'] = 0
                 csv_write(csv_results)
+                current_stage = 0
                 
+            '''
             if(csv_results_plc['END_PROGRAM'] == 0 and csv_results['DONE'] == 0):
                 print('PLC(END_PROGRAM) is low. Resetting PHOENIX to Stage 0')
                 current_stage = 0 # cycle complete, reset to stage 0
-            
+            '''
             time.sleep(1)
 
 
