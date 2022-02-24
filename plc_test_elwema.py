@@ -145,52 +145,6 @@ def read_plc_dict(plc, machine_num):
 #TODO: Modify to use running values instead of relying on reads from an OPC server
 def write_plc(plc, machine_num, results):
 
-    ''' 
-    #'PUN' and 'GMPartNumber' conversions are unnecessary after removing OPC server(?)
-    #the 'PUN' tags requires string-to-int64[] conversion to write to the PLC
-    #plc_PUN_int = []
-    plc_PUN_int = results['PUN'][1] #result directly from PLC results instead of OPC, no need to convert for writing back(?)
-    #print(plc_PUN_int)
-    #converts a string into an array of ASCII int64 values
-    plc_PUN_int = strArray_to_intArray(plc_PUN_int)
-    #print(plc_PUN_int)
-    #appending NULL values to fill out plc_PUN_int array[64]
-    for i in range(len(plc_PUN_int), 64):
-            #None = NULL in Python
-            #plc_PUN_int.append(None)
-            plc_PUN_int.append(0) #? Maybe won't write because 'None' is a different type than 'int'
-            #plc_PUN_int[i] = None
-
-    #requires 'I.GMPartNumber' to be set with 8-characters, part of the dotnet-opc-client's 'copy'
-    #plc_GMPartNumber= client.nodes.root.get_child(["0:Objects", f"{idx}:HM1450_VS" + machine_num, f"{idx}:VPC1.I.GMPartNumber"])
-    #plc.write('Program:HM1450_VS' + machine_num + '.VPC1.I.GMPartNumber', await plc_GMPartNumber.read_value())
-    plc_GMPartNumber_int = opc_variables['GMPartNumber_' + machine_num + 'i'].get_value()
-    #print(plc_GMPartNumber_int)
-    plc_GMPartNumber_int = strArray_to_intArray(plc_GMPartNumber_int)
-    #print(plc_GMPartNumber_int)
-    #print()
-    #plc.write('Program:HM1450_VS' + machine_num + '.VPC1.I.GMPartNumber{8}', plc_GMPartNumber_int)
-
-    plc_PUN_int = opc_snapshot[9]
-    #print(plc_PUN_int)
-    #converts a string into an array of ASCII int64 values
-    plc_PUN_int = strArray_to_intArray(plc_PUN_int)
-    #print(plc_PUN_int)
-    #appending NULL values to fill out plc_PUN_int array[64]
-    for i in range(len(plc_PUN_int), 64):
-            #None = NULL in Python
-            #plc_PUN_int.append(None)
-            plc_PUN_int.append(0) #? Maybe won't write because 'None' is a different type than 'int'
-            #plc_PUN_int[i] = None
-
-    plc_GMPartNumber_int = opc_snapshot[10]
-    #print(plc_GMPartNumber_int)
-    plc_GMPartNumber_int = strArray_to_intArray(plc_GMPartNumber_int)
-
-    #print(opc_snapshot)
-    #time.sleep(5)
-    '''
-
     #logging how long the 'read' takes
     start_time = datetime.datetime.now()
 
@@ -323,7 +277,7 @@ def TriggerKeyence(sock, item):
             data = sock.recv(32)
         print('TriggerKeyence: received "%s"' % data)
         #print('Scanning...')
-        #time.sleep(.5) # FINAL SLEEP REMOVAL
+        time.sleep(.5)
 #END 'TriggerKeyence'
 
 #sends specific Keyence Program (branch) info to pre-load/prepare Keyence for Trigger(T1)
@@ -337,13 +291,13 @@ def LoadKeyence(sock, item):
         print('received "%s"' % data)
 
 # sends 'TE,0' then 'TE,1' to the Keyence, resetting to original state (ready for new 'T1')
-def ExtKeyence(sock):
-    message = 'TE,0\r\n' # setting 'TE,0' first
+def ExtKeyence(sock, item, item_reset):
+    message = item # setting 'TE,0' first
     with lock:
         sock.sendall(message.encode()) # sending TE,0
         print('\n\'TE,0\' Sent!')
 
-        message = 'TE,1\r\n' # setting 'TE,1' to reset
+        message = item_reset # setting 'TE,1' to reset
         sock.sendall(message.encode()) # sending, TE,1
         print('\'TE,1\' Sent!')
 
@@ -351,38 +305,30 @@ def ExtKeyence(sock):
         #print('received "%s"' % data)
 # END 'ExtKeyence'
 
-# reading EndScan until it goes high to interrupt current Keyence scan
-def monitor_endScan(plc, machine_num):
-    print('Listening for PLC(END_SCAN) high')
-    current = plc.read('Program:HM1450_VS' + machine_num + '.VPC1.O.EndScan')
-
-    while(current[1] != True):
-        current = plc.read('Program:HM1450_VS14.VPC1.O.EndScan')
-    print('PLC(END_SCAN) went high!')
-
-    ExtKeyence(sock) #function to interrupt Keyence
-    pass
-
 #START main()
 def main():
     global current_stage #keeps track of which stage program is currently in from the timing process
 
     print("Connecting to PLC")
     with LogixDriver('120.57.42.114') as plc:
-        #declaring threads, does not run
-        #t1 = threading.Thread(target=TriggerKeyence, args=[sock, 'T1\r\n']) #thread1, passing in socket connection and 'T1' keyence command
-        #t2 = threading.Thread(target=ExtKeyence, args=[sock, 'TE,0\r\n', 'TE,1\r\n']) #thread2, uses 'TE,0' and 'TE,1' to cancel while scanning and reset to original state
-        #t2 = threading.Thread(target=monitor_endScan, args=[plc, '14'])
-
         while(True):
+
             #reading in .csv plc emulator for initial values
             #split into two .csv files, representing each direction of traffic between PLC and Phoenix
             #csv_results = csv_read('o') #holds PHOENIX tags / data
             #csv_results_plc = csv_read('i') #holds PLC (Grob) tags / data
             csv_results = {}
 
+            start_time = datetime.datetime.now()
             results_14_dict = read_plc_dict(plc, '14') #initial PLC tag read for 'robot 14' values
-            #print(results_14_dict['LoadProgram'][1]) #how to print the value of one specific tag
+            end_time = datetime.datetime.now()
+            time_diff = (end_time - start_time)
+            execution_time = time_diff.total_seconds() * 1000
+            print('\'read_plc_dict()\' took %d ms to run' % (execution_time))
+
+            write_plc(plc,'14',results_14_dict)
+
+            time.sleep(1000)
 
             #STAGE0 CHECK HERE
             if(current_stage == 0):
@@ -394,13 +340,20 @@ def main():
                 ('Program:HM1450_VS14.VPC1.I.Pass', False),
                 ('Program:HM1450_VS14.VPC1.I.Fail', False)
                 )
-                
+                while(result_ready[1] != True):
+                    print(result_ready)
+                    plc.write('Program:HM1450_VS14.VPC1.I.Ready', True)
+                    plc.write('Program:HM1450_VS15.VPC1.I.Ready', True)
+                    print('Wrote Phoenix(READY) high!')
+                    result_ready = plc.read('Program:HM1450_VS14.VPC1.I.Ready')
+                    print(result_ready)
+                    time.sleep(3)
                 print('Stage 0 : Listening for PLC(LOAD_PROGRAM) = 1')
                 #reading PLC until LOAD_PROGRAM goes high
                 while(results_14_dict['LoadProgram'][1] != True):
                     results_14_dict = read_plc_dict(plc, '14') # continuous PLC read
                     #print(csv_results)
-                    #time.sleep(1) # FINAL SLEEP REMOVAL
+                    time.sleep(1)
 
                 print('PLC(LOAD_PROGRAM) went high!')
                 # Once PLC(LOAD_PROGRAM) goes high, mirror data and set Phoenix(READY) high, signifies end of "loading" process
@@ -430,26 +383,22 @@ def main():
                 print('!Mirroring Data!')
                 write_plc(plc,'14',results_14_dict) #writing back mirrored values to PLC to confirm LOAD has been processed / sent to Keyence
                 #csv_results['DATA'] = csv_results_plc['DATA']
-                #time.sleep(1) # FINAL SLEEP REMOVAL #artificial pause to see step happening in testing
+                time.sleep(1) #artificial pause to see step happening in testing
                 print('Data Mirrored, Setting \'READY\' high')
                 plc.write('Program:HM1450_VS14.VPC1.I.Ready', True)
-                #time.sleep(3) # FINAL SLEEP REMOVAL
+                time.sleep(3)
                 current_stage += 1 #incrementing out of STAGE0
             #END STAGE0
             #START STAGE1 : START/END Program
             elif(current_stage == 1):
                 print('Stage 1!\nListening for PLC(START_PROGRAM) = 1')
-                #time.sleep(.01) # FINAL SLEEP REMOVAL #10ms artificial delay for testing
+                time.sleep(.01) #10ms artificial delay for testing
                 if(results_14_dict['StartProgram'][1] == True):
                     print('PLC(START_PROGRAM) went high! Time to trigger Keyence...')
                     plc.write('Program:HM1450_VS14.VPC1.I.Busy', True) #Busy goes HIGH while Keyence is scanning
 
                     #Actual Keyence Trigger (T1) here***
                     TriggerKeyence(sock, 'T1\r\n')
-                    monitor_endScan(plc, '14') # ends Keyence with EndScan
-                    #t1.start() # triggers Keyence with thread
-                    #t2.start() # monitors 'EndScan' until True, then invokes 'ExtKeyence' command to interrupt current scan
-                    #t2.join() # locking second thread so we don't proceed with threads completing
 
                     print('Pretend scan ended! PHOENIX(BUSY) is low')
                     plc.write('Program:HM1450_VS14.VPC1.I.Busy', False)
@@ -463,7 +412,7 @@ def main():
                     print('PHOENIX(PASS) and PHOENIX(DONE) = 1')
                     print('Stage 1 Complete!')
                     current_stage += 1
-                    #time.sleep(1) # FINAL SLEEP REMOVAL
+                    time.sleep(1)
                 
             #Final Stage, reset to Stage 0 once PLC(END_PROGRAM) and PHOENIX(DONE) have been set low
             elif(current_stage == 2):
@@ -477,7 +426,29 @@ def main():
                     print('PLC(END_PROGRAM) is low. Resetting PHOENIX to Stage 0')
                     current_stage = 0 # cycle complete, reset to stage 0
                 
-                #time.sleep(1) # FINAL SLEEP REMOVAL
+                time.sleep(1)
+
+
+    #BEGIN THREADING TRIGGER KEYENCE
+    #declaring threads, does not run
+    t1 = threading.Thread(target=TriggerKeyence, args=[sock, 'T1\r\n']) #thread1, passing in socket connection and 'T1' keyence command
+    t2 = threading.Thread(target=ExtKeyence, args=[sock, 'TE,0\r\n', 'TE,1\r\n']) #thread2, uses 'TE,0' and 'TE,1' to cancel while scanning and reset to original state
+
+    #starting threads
+    t1.start()
+    #t1.join() #'join' locks until the thread has processed (?)
+
+    #waits 10 seconds while 'T1' starts / is scanning
+    for x in range (10):
+        print(x)
+        time.sleep(1)
+
+    # starts second thread to send 'TE,0' and 'TE,1' to Keyence, cancelling the current scan in progress and resetting Keyence to a state that will accept a new 'T1'
+    t2.start()
+    t2.join() #! will this keep thread ordered between calls to main()?
+
+    print(f'\n*Longest Time*: {longest_time}\n')
+    #print('End main()')
 #END 'main'
 
 #implicit 'main()' declaration
