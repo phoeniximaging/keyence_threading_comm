@@ -12,7 +12,7 @@ import os
 '''
 This is the first testing thread for Elwema using threading and an all-in-one Python program.
 
-Theoretically runs machine 14 and 15 simultaneously, UNTESTED
+Progresses through the timing diagram based on tag values read off Elwema's PLC. Loads and Triggers Keyence.
 '''
 
 
@@ -147,6 +147,52 @@ def read_plc_dict(plc, machine_num):
 #Writing back to PLC to mirror data on LOAD
 #TODO: Modify to use running values instead of relying on reads from an OPC server
 def write_plc(plc, machine_num, results):
+
+    ''' 
+    #'PUN' and 'GMPartNumber' conversions are unnecessary after removing OPC server(?)
+    #the 'PUN' tags requires string-to-int64[] conversion to write to the PLC
+    #plc_PUN_int = []
+    plc_PUN_int = results['PUN'][1] #result directly from PLC results instead of OPC, no need to convert for writing back(?)
+    #print(plc_PUN_int)
+    #converts a string into an array of ASCII int64 values
+    plc_PUN_int = strArray_to_intArray(plc_PUN_int)
+    #print(plc_PUN_int)
+    #appending NULL values to fill out plc_PUN_int array[64]
+    for i in range(len(plc_PUN_int), 64):
+            #None = NULL in Python
+            #plc_PUN_int.append(None)
+            plc_PUN_int.append(0) #? Maybe won't write because 'None' is a different type than 'int'
+            #plc_PUN_int[i] = None
+
+    #requires 'I.GMPartNumber' to be set with 8-characters, part of the dotnet-opc-client's 'copy'
+    #plc_GMPartNumber= client.nodes.root.get_child(["0:Objects", f"{idx}:HM1450_VS" + machine_num, f"{idx}:VPC1.I.GMPartNumber"])
+    #plc.write('Program:HM1450_VS' + machine_num + '.VPC1.I.GMPartNumber', await plc_GMPartNumber.read_value())
+    plc_GMPartNumber_int = opc_variables['GMPartNumber_' + machine_num + 'i'].get_value()
+    #print(plc_GMPartNumber_int)
+    plc_GMPartNumber_int = strArray_to_intArray(plc_GMPartNumber_int)
+    #print(plc_GMPartNumber_int)
+    #print()
+    #plc.write('Program:HM1450_VS' + machine_num + '.VPC1.I.GMPartNumber{8}', plc_GMPartNumber_int)
+
+    plc_PUN_int = opc_snapshot[9]
+    #print(plc_PUN_int)
+    #converts a string into an array of ASCII int64 values
+    plc_PUN_int = strArray_to_intArray(plc_PUN_int)
+    #print(plc_PUN_int)
+    #appending NULL values to fill out plc_PUN_int array[64]
+    for i in range(len(plc_PUN_int), 64):
+            #None = NULL in Python
+            #plc_PUN_int.append(None)
+            plc_PUN_int.append(0) #? Maybe won't write because 'None' is a different type than 'int'
+            #plc_PUN_int[i] = None
+
+    plc_GMPartNumber_int = opc_snapshot[10]
+    #print(plc_GMPartNumber_int)
+    plc_GMPartNumber_int = strArray_to_intArray(plc_GMPartNumber_int)
+
+    #print(opc_snapshot)
+    #time.sleep(5)
+    '''
 
     #logging how long the 'read' takes
     start_time = datetime.datetime.now()
