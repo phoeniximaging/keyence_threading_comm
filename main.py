@@ -363,26 +363,12 @@ def monitor_endScan(plc, machine_num):
     ExtKeyence(sock) #function to interrupt Keyence
     pass
 
-#START main()
-def main():
-    global current_stage #keeps track of which stage program is currently in from the timing process
+# primary function, to be used by 14/15 threads
+def cycle(plc, machine_num):
+    while(True):
 
-    print("Connecting to PLC")
-    with LogixDriver('120.57.42.114') as plc:
-        #declaring threads, does not run
-        #t1 = threading.Thread(target=TriggerKeyence, args=[sock, 'T1\r\n']) #thread1, passing in socket connection and 'T1' keyence command
-        #t2 = threading.Thread(target=ExtKeyence, args=[sock, 'TE,0\r\n', 'TE,1\r\n']) #thread2, uses 'TE,0' and 'TE,1' to cancel while scanning and reset to original state
-        #t2 = threading.Thread(target=monitor_endScan, args=[plc, '14'])
-
-        while(True):
-            #reading in .csv plc emulator for initial values
-            #split into two .csv files, representing each direction of traffic between PLC and Phoenix
-            #csv_results = csv_read('o') #holds PHOENIX tags / data
-            #csv_results_plc = csv_read('i') #holds PLC (Grob) tags / data
-            csv_results = {}
-
-            results_14_dict = read_plc_dict(plc, '14') #initial PLC tag read for 'robot 14' values
-            #print(results_14_dict['LoadProgram'][1]) #how to print the value of one specific tag
+            results_dict = read_plc_dict(plc, machine_num) #initial PLC tag read for 'robot 14' values
+            #print(results_dict['LoadProgram'][1]) #how to print the value of one specific tag
 
             #STAGE0 CHECK HERE
             if(current_stage == 0):
@@ -397,8 +383,8 @@ def main():
                 
                 print('Stage 0 : Listening for PLC(LOAD_PROGRAM) = 1')
                 #reading PLC until LOAD_PROGRAM goes high
-                while(results_14_dict['LoadProgram'][1] != True):
-                    results_14_dict = read_plc_dict(plc, '14') # continuous PLC read
+                while(results_dict['LoadProgram'][1] != True):
+                    results_dict = read_plc_dict(plc, '14') # continuous PLC read
                     #print(csv_results)
                     #time.sleep(1) # FINAL SLEEP REMOVAL
 
@@ -423,39 +409,39 @@ def main():
                 12= Front Side(45T3) 
                 '''
                 keyence_string = ''
-                if(results_14_dict['PartProgram'][1] == 1):
+                if(results_dict['PartProgram'][1] == 1):
                     keyence_string = 'CoverFace-1-625T'
-                elif(results_14_dict['PartProgram'][1] == 2):
+                elif(results_dict['PartProgram'][1] == 2):
                     keyence_string = 'CoverFace-2-625T'
-                elif(results_14_dict['PartProgram'][1] == 3):
+                elif(results_dict['PartProgram'][1] == 3):
                     keyence_string = 'IntakeFace-625T'
-                elif(results_14_dict['PartProgram'][1] == 4):
+                elif(results_dict['PartProgram'][1] == 4):
                     keyence_string = 'FrontFace-625T'
-                elif(results_14_dict['PartProgram'][1] == 5):
+                elif(results_dict['PartProgram'][1] == 5):
                     keyence_string = 'CoverFace-1-675T'
-                elif(results_14_dict['PartProgram'][1] == 6):
+                elif(results_dict['PartProgram'][1] == 6):
                     keyence_string = 'CoverFace-2-675T'
-                elif(results_14_dict['PartProgram'][1] == 7):
+                elif(results_dict['PartProgram'][1] == 7):
                     keyence_string = 'IntakeFace-675T'
-                elif(results_14_dict['PartProgram'][1] == 8):
+                elif(results_dict['PartProgram'][1] == 8):
                     keyence_string = 'FrontFace-675T'
-                elif(results_14_dict['PartProgram'][1] == 9):
+                elif(results_dict['PartProgram'][1] == 9):
                     keyence_string = 'CoverFace-1-45T3'
-                elif(results_14_dict['PartProgram'][1] == 10):
+                elif(results_dict['PartProgram'][1] == 10):
                     keyence_string = 'CoverFace-2-45T3'
-                elif(results_14_dict['PartProgram'][1] == 11):
+                elif(results_dict['PartProgram'][1] == 11):
                     keyence_string = 'IntakeFace-45T3'
-                elif(results_14_dict['PartProgram'][1] == 12):
+                elif(results_dict['PartProgram'][1] == 12):
                     keyence_string = 'FrontFace-45T3'
 
                 #TODO Send branch data to load Keyence for scan
-                LoadKeyence(sock,'MW,#PhoenixControlFaceBranch,' + str(results_14_dict['PartProgram'][1]) + '\r\n') #Keyence loading message, uses PartProgram from PLC to load specific branch
+                LoadKeyence(sock,'MW,#PhoenixControlFaceBranch,' + str(results_dict['PartProgram'][1]) + '\r\n') #Keyence loading message, uses PartProgram from PLC to load specific branch
                 LoadKeyence(sock,'STW,0,"' + keyence_string + '\r\n') # passing external string to Keyence for file naming (?)
                 print('Keyence Loaded!')
 
                 #TODO Actually Mirror Data (write back to PLC)
                 print('!Mirroring Data!')
-                write_plc(plc,'14',results_14_dict) #writing back mirrored values to PLC to confirm LOAD has been processed / sent to Keyence
+                write_plc(plc,'14',results_dict) #writing back mirrored values to PLC to confirm LOAD has been processed / sent to Keyence
                 #csv_results['DATA'] = csv_results_plc['DATA']
                 #time.sleep(1) # FINAL SLEEP REMOVAL #artificial pause to see step happening in testing
                 print('Data Mirrored, Setting \'READY\' high')
@@ -467,7 +453,7 @@ def main():
             elif(current_stage == 1):
                 print('Stage 1!\nListening for PLC(START_PROGRAM) = 1')
                 #time.sleep(.01) # FINAL SLEEP REMOVAL #10ms artificial delay for testing
-                if(results_14_dict['StartProgram'][1] == True):
+                if(results_dict['StartProgram'][1] == True):
                     print('PLC(START_PROGRAM) went high! Time to trigger Keyence...')
                     plc.write('Program:HM1450_VS14.VPC1.I.Busy', True) #Busy goes HIGH while Keyence is scanning
 
@@ -496,15 +482,30 @@ def main():
             elif(current_stage == 2):
                 done_check = plc.read('Program:HM1450_VS14.VPC1.I.Done')
                 print('Stage 2 : Listening to PLC(END_PROGRAM) low to reset back to Stage 0')
-                if(results_14_dict['EndProgram'][1] == True):
+                if(results_dict['EndProgram'][1] == True):
                     print('PLC(END_PROGRAM) is high. Dropping PHOENIX(DONE) low')
                     plc.write('Program:HM1450_VS14.VPC1.I.Done', False)
                     
-                if(results_14_dict['EndProgram'][1] == False and done_check[1] == False):
+                if(results_dict['EndProgram'][1] == False and done_check[1] == False):
                     print('PLC(END_PROGRAM) is low. Resetting PHOENIX to Stage 0')
                     current_stage = 0 # cycle complete, reset to stage 0
                 
                 #time.sleep(1) # FINAL SLEEP REMOVAL
+    pass
+
+#START main()
+def main():
+    global current_stage #keeps track of which stage program is currently in from the timing process
+
+    print("Connecting to PLC")
+    with LogixDriver('120.57.42.114') as plc:
+        #declaring threads, does not run
+        #t1 = threading.Thread(target=TriggerKeyence, args=[sock, 'T1\r\n']) #thread1, passing in socket connection and 'T1' keyence command
+        #t2 = threading.Thread(target=ExtKeyence, args=[sock, 'TE,0\r\n', 'TE,1\r\n']) #thread2, uses 'TE,0' and 'TE,1' to cancel while scanning and reset to original state
+        t1 = threading.Thread(target=cycle, args=[plc, '14'])
+        t2 = threading.Thread(target=cycle, args=[plc, '15'])
+    print('This code is beyond the threads!')
+
 #END 'main'
 
 #implicit 'main()' declaration
