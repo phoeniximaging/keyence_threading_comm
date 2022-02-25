@@ -448,7 +448,6 @@ def cycle(machine_num, sock, current_stage):
                     elif(results_dict['PartProgram'][1] == 12):
                         keyence_string = 'RearFace-45T3'
 
-
                 #TODO Send branch data to load Keyence for scan
                 LoadKeyence(sock,'MW,#PhoenixControlFaceBranch,' + str(results_dict['PartProgram'][1]) + '\r\n') #Keyence loading message, uses PartProgram from PLC to load specific branch
                 LoadKeyence(sock,'STW,0,"' + keyence_string + '\r\n') # passing external string to Keyence for file naming (?)
