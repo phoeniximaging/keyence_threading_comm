@@ -321,7 +321,7 @@ def TriggerKeyence(sock, item):
         with lock:
             sock.sendall(message.encode())
             data = sock.recv(32)
-        print('TriggerKeyence: received "%s"' % data)
+        #print('TriggerKeyence: received "%s"' % data)
         #print('Scanning...')
         #time.sleep(.5) # FINAL SLEEP REMOVAL
 #END 'TriggerKeyence'
@@ -422,8 +422,35 @@ def main():
                 11= Intake Side(45T3)
                 12= Front Side(45T3) 
                 '''
+                keyence_string = ''
+                if(results_14_dict['PartProgram'][1] == 1):
+                    keyence_string = 'CoverFace-1-625T'
+                elif(results_14_dict['PartProgram'][1] == 2):
+                    keyence_string = 'CoverFace-2-625T'
+                elif(results_14_dict['PartProgram'][1] == 3):
+                    keyence_string = 'IntakeFace-625T'
+                elif(results_14_dict['PartProgram'][1] == 4):
+                    keyence_string = 'FrontFace-625T'
+                elif(results_14_dict['PartProgram'][1] == 5):
+                    keyence_string = 'CoverFace-1-675T'
+                elif(results_14_dict['PartProgram'][1] == 6):
+                    keyence_string = 'CoverFace-2-675T'
+                elif(results_14_dict['PartProgram'][1] == 7):
+                    keyence_string = 'IntakeFace-675T'
+                elif(results_14_dict['PartProgram'][1] == 8):
+                    keyence_string = 'FrontFace-675T'
+                elif(results_14_dict['PartProgram'][1] == 9):
+                    keyence_string = 'CoverFace-1-45T3'
+                elif(results_14_dict['PartProgram'][1] == 10):
+                    keyence_string = 'CoverFace-2-45T3'
+                elif(results_14_dict['PartProgram'][1] == 11):
+                    keyence_string = 'IntakeFace-45T3'
+                elif(results_14_dict['PartProgram'][1] == 12):
+                    keyence_string = 'FrontFace-45T3'
+
                 #TODO Send branch data to load Keyence for scan
                 LoadKeyence(sock,'MW,#PhoenixControlFaceBranch,' + str(results_14_dict['PartProgram'][1]) + '\r\n') #Keyence loading message, uses PartProgram from PLC to load specific branch
+                LoadKeyence(sock,'STW,0,"' + keyence_string + '\r\n') # passing external string to Keyence for file naming (?)
                 print('Keyence Loaded!')
 
                 #TODO Actually Mirror Data (write back to PLC)
