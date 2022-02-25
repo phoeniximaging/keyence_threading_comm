@@ -120,6 +120,10 @@ sock_15.connect(('172.19.146.81', 8500))
 
 lock = threading.Lock()
 
+# Testing
+start_timer = datetime.datetime.now()
+start_timer_END = datetime.datetime.now()
+
 #single-shot read of all 'arrayOutTags' off PLC
 def read_plc_dict(plc, machine_num):
     #print("read_plc_dict, generating list of read tags")
@@ -252,6 +256,7 @@ def TriggerKeyence(sock, item):
     global trigger_count
     global slow_count
     global longest_time
+    global start_timer_END
 
     message = item
     trigger_start_time = datetime.datetime.now() # marking when 'T1' is sent
@@ -259,6 +264,10 @@ def TriggerKeyence(sock, item):
         sock.sendall(message.encode())
         data = sock.recv(32)
         #print('received "%s"\n' % data)
+        start_timer_END = datetime.datetime.now() # END test timer
+    time_diff = (start_timer_END - start_timer)
+    execution_time = time_diff.total_seconds() * 1000
+    print(f'PLC(Start) read to Keyence(T1) read in : {execution_time} ms')
 
     #am I using these right?(!)
     with lock:
@@ -269,7 +278,7 @@ def TriggerKeyence(sock, item):
     trigger_end_time = datetime.datetime.now() # marking when '%Busy' is read off Keyence
     time_diff = (trigger_end_time - trigger_start_time)
     execution_time = time_diff.total_seconds() * 1000
-    #print(f'\n\'T1\' sent to \'%Busy\' read in: {execution_time} ms\n')
+    print(f'\n\'T1\' sent to \'%Busy\' read in: {execution_time} ms\n')
     if(execution_time > longest_time):
         longest_time = execution_time
 
@@ -339,7 +348,9 @@ def monitor_KeyenceNotRunning(sock):
 
 # primary function, to be used by 14/15 threads
 def cycle(machine_num, sock, current_stage):
-    print("({machine_num}) Connecting to PLC\n")
+    global start_timer #testing
+
+    print(f'({machine_num}) Connecting to PLC\n')
     with LogixDriver('120.57.42.114') as plc:
         while(True):
             #print(f'({machine_num}) Reading PLC\n')
@@ -459,6 +470,7 @@ def cycle(machine_num, sock, current_stage):
                 #print('Stage 1!\nListening for PLC(START_PROGRAM) = 1')
                 #time.sleep(.01) # FINAL SLEEP REMOVAL #10ms artificial delay for testing
                 if(results_dict['StartProgram'][1] == True):
+                    start_timer = datetime.datetime.now() # START test timer
                     print(f'({machine_num}) PLC(START_PROGRAM) went high! Time to trigger Keyence...\n')
                     plc.write('Program:HM1450_VS' + machine_num + '.VPC1.I.Busy', True) #Busy goes HIGH while Keyence is scanning
 
@@ -495,6 +507,7 @@ def cycle(machine_num, sock, current_stage):
                     current_stage = 0 # cycle complete, reset to stage 0
                 
                 #time.sleep(1) # FINAL SLEEP REMOVAL
+            time.sleep(.005) #artificial loop timer
         pass
 
 #START main()
