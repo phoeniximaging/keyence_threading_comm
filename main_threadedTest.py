@@ -109,7 +109,8 @@ trigger_count = 0
 slow_count = 0
 longest_time = 0
 
-current_stage = 0
+current_stage_14 = 0
+current_stage_15 = 0
 
 # Keyence socket connections
 sock_14 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -335,9 +336,11 @@ def monitor_KeyenceNotRunning(sock):
 #END monitor_KeyenceNotRunning
 
 # primary function, to be used by 14/15 threads
-def cycle(plc, machine_num, sock):
-    while(True):
-
+def cycle(machine_num, sock, current_stage):
+    print("Connecting to PLC")
+    with LogixDriver('120.57.42.114') as plc:
+        while(True):
+            print(f'({machine_num}) Reading PLC')
             results_dict = read_plc_dict(plc, machine_num) #initial PLC tag read for 'robot 14' values
             #print(results_dict['LoadProgram'][1]) #how to print the value of one specific tag
 
@@ -489,22 +492,24 @@ def cycle(plc, machine_num, sock):
                     current_stage = 0 # cycle complete, reset to stage 0
                 
                 #time.sleep(1) # FINAL SLEEP REMOVAL
-    pass
+        pass
 
 #START main()
 def main():
-    global current_stage #keeps track of which stage program is currently in from the timing process
+    global current_stage_14 #keeps track of which stage program is currently in from the timing process
+    global current_stage_15
 
-    print("Connecting to PLC")
-    with LogixDriver('120.57.42.114') as plc:
-        #declaring threads, does not run
-        #t1 = threading.Thread(target=TriggerKeyence, args=[sock, 'T1\r\n']) #thread1, passing in socket connection and 'T1' keyence command
-        #t2 = threading.Thread(target=ExtKeyence, args=[sock, 'TE,0\r\n', 'TE,1\r\n']) #thread2, uses 'TE,0' and 'TE,1' to cancel while scanning and reset to original state
-        t1 = threading.Thread(target=cycle, args=[plc, '14', sock_14])
-        t2 = threading.Thread(target=cycle, args=[plc, '15', sock_15])
-        print("Starting Threads (14/15)...")
-        t1.start()
-        t2.start()
+    #declaring threads, does not run
+    #t1 = threading.Thread(target=TriggerKeyence, args=[sock, 'T1\r\n']) #thread1, passing in socket connection and 'T1' keyence command
+    #t2 = threading.Thread(target=ExtKeyence, args=[sock, 'TE,0\r\n', 'TE,1\r\n']) #thread2, uses 'TE,0' and 'TE,1' to cancel while scanning and reset to original state
+    t1 = threading.Thread(target=cycle, args=['14', sock_14, current_stage_14])
+    t2 = threading.Thread(target=cycle, args=['15', sock_15, current_stage_15])
+    print("Starting Threads (14/15)...")
+    t1.start()
+    t2.start()
+    t1.join()
+    t2.join()
+
     print('This code is beyond the threads!')
 
 #END 'main'
