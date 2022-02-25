@@ -184,7 +184,7 @@ def write_plc(plc, machine_num, results):
     end_time = datetime.datetime.now()
     time_diff = (end_time - start_time)
     execution_time = time_diff.total_seconds() * 1000
-    print('\'plc.write()\' took %d ms to run' % (execution_time))
+    #print('\'plc.write()\' took %d ms to run\n' % (execution_time))
     #print("Finished writing PLC...")
     pass
 #END write_plc
@@ -194,6 +194,7 @@ def protected_ord(value):
     if len(value) > 1:
         print("WRONG Below: ")
         print(value)
+        print()
         value = value[0]
     #print("Returning:")
     #print(value)
@@ -257,7 +258,7 @@ def TriggerKeyence(sock, item):
     with lock:
         sock.sendall(message.encode())
         data = sock.recv(32)
-        print('received "%s"' % data)
+        #print('received "%s"\n' % data)
 
     #am I using these right?(!)
     with lock:
@@ -268,7 +269,7 @@ def TriggerKeyence(sock, item):
     trigger_end_time = datetime.datetime.now() # marking when '%Busy' is read off Keyence
     time_diff = (trigger_end_time - trigger_start_time)
     execution_time = time_diff.total_seconds() * 1000
-    print(f'\n\'T1\' sent to \'%Busy\' read in: {execution_time} ms')
+    #print(f'\n\'T1\' sent to \'%Busy\' read in: {execution_time} ms\n')
     if(execution_time > longest_time):
         longest_time = execution_time
 
@@ -286,24 +287,25 @@ def TriggerKeyence(sock, item):
 
 #sends specific Keyence Program (branch) info to pre-load/prepare Keyence for Trigger(T1)
 def LoadKeyence(sock, item):
-    print('LOADING KEYENCE')
+    print('LOADING KEYENCE\n')
     message = item # keyence message
     with lock:
         sock.sendall(message.encode()) # sending branch info
-        print(f'\n\'{item}\' Sent!')
+        print(f'\n\'{item}\' Sent!\n')
         data = sock.recv(32)
-        print('received "%s"' % data)
+        #print('received "%s"\n' % data)
 
 # sends 'TE,0' then 'TE,1' to the Keyence, resetting to original state (ready for new 'T1')
 def ExtKeyence(sock):
+    print('ExtKeyence!')
     message = 'TE,0\r\n' # setting 'TE,0' first
     with lock:
         sock.sendall(message.encode()) # sending TE,0
-        print('\n\'TE,0\' Sent!')
+        #print('\n\'TE,0\' Sent!\n')
 
         message = 'TE,1\r\n' # setting 'TE,1' to reset
         sock.sendall(message.encode()) # sending, TE,1
-        print('\'TE,1\' Sent!')
+        #print('\'TE,1\' Sent!\n')
 
         #data = sock.recv(32)
         #print('received "%s"' % data)
@@ -311,12 +313,12 @@ def ExtKeyence(sock):
 
 # reading PLC(EndScan) until it goes high to interrupt current Keyence scan
 def monitor_endScan(plc, machine_num, sock):
-    print('Listening for PLC(END_SCAN) high')
+    #print('Listening for PLC(END_SCAN) high\n')
     current = plc.read('Program:HM1450_VS' + machine_num + '.VPC1.O.EndScan')
 
     while(current[1] != True):
         current = plc.read('Program:HM1450_VS14.VPC1.O.EndScan')
-    print('PLC(END_SCAN) went high!')
+    print('PLC(END_SCAN) went high!\n')
 
     ExtKeyence(sock) #function to interrupt Keyence
     pass
@@ -331,22 +333,22 @@ def monitor_KeyenceNotRunning(sock):
     while(data != b'MR,+0000000001.000000\r'):
         sock.sendall(msg.encode())
         data = sock.recv(32)
-    print('Keyence Processing Complete!')
+    print('Keyence Processing Complete!\n')
     pass
 #END monitor_KeyenceNotRunning
 
 # primary function, to be used by 14/15 threads
 def cycle(machine_num, sock, current_stage):
-    print("Connecting to PLC")
+    print("({machine_num}) Connecting to PLC\n")
     with LogixDriver('120.57.42.114') as plc:
         while(True):
-            print(f'({machine_num}) Reading PLC')
+            #print(f'({machine_num}) Reading PLC\n')
             results_dict = read_plc_dict(plc, machine_num) #initial PLC tag read for 'robot 14' values
             #print(results_dict['LoadProgram'][1]) #how to print the value of one specific tag
 
             #STAGE0 CHECK HERE
             if(current_stage == 0):
-                print('Setting Boolean Flags to Stage 0')
+                print(f'({machine_num}) Setting Boolean Flags to Stage 0\n')
                 plc.write(
                 ('Program:HM1450_VS' + machine_num + '.VPC1.I.Ready', True),
                 ('Program:HM1450_VS' + machine_num + '.VPC1.I.Busy', False),
@@ -355,17 +357,17 @@ def cycle(machine_num, sock, current_stage):
                 ('Program:HM1450_VS' + machine_num + '.VPC1.I.Fail', False)
                 )
                 
-                print(f'({machine_num}) Stage 0 : Listening for PLC(LOAD_PROGRAM) = 1')
+                print(f'({machine_num}) Stage 0 : Listening for PLC(LOAD_PROGRAM) = 1\n')
                 #reading PLC until LOAD_PROGRAM goes high
                 while(results_dict['LoadProgram'][1] != True):
                     results_dict = read_plc_dict(plc, machine_num) # continuous PLC read
                     #print(csv_results)
                     #time.sleep(1) # FINAL SLEEP REMOVAL
 
-                print('PLC(LOAD_PROGRAM) went high!')
+                #print('PLC(LOAD_PROGRAM) went high!\n')
                 # Once PLC(LOAD_PROGRAM) goes high, mirror data and set Phoenix(READY) high, signifies end of "loading" process
                 plc.write('Program:HM1450_VS' + machine_num + '.VPC1.I.Ready', False)
-                print('Dropping Phoenix(READY) low.')
+                print('Dropping Phoenix(READY) low.\n')
 
                 ''' 
                 *Part Program Table (14):*
@@ -439,57 +441,57 @@ def cycle(machine_num, sock, current_stage):
                 #TODO Send branch data to load Keyence for scan
                 LoadKeyence(sock,'MW,#PhoenixControlFaceBranch,' + str(results_dict['PartProgram'][1]) + '\r\n') #Keyence loading message, uses PartProgram from PLC to load specific branch
                 LoadKeyence(sock,'STW,0,"' + keyence_string + '\r\n') # passing external string to Keyence for file naming (?)
-                print('Keyence Loaded!')
+                print('Keyence Loaded!\n')
 
                 #TODO Actually Mirror Data (write back to PLC)
-                print('!Mirroring Data!')
+                #print('!Mirroring Data!\n')
                 write_plc(plc,machine_num,results_dict) #writing back mirrored values to PLC to confirm LOAD has been processed / sent to Keyence
                 #csv_results['DATA'] = csv_results_plc['DATA']
                 #time.sleep(1) # FINAL SLEEP REMOVAL #artificial pause to see step happening in testing
-                print(f'({machine_num}) Data Mirrored, Setting \'READY\' high')
+                print(f'({machine_num}) Data Mirrored, Setting \'READY\' high\n')
                 plc.write('Program:HM1450_VS' + machine_num + '.VPC1.I.Ready', True)
                 #time.sleep(3) # FINAL SLEEP REMOVAL
                 current_stage += 1 #incrementing out of STAGE0
-                print('Stage 1!\nListening for PLC(START_PROGRAM) = 1')
+                print(f'({machine_num}) Stage 1!\nListening for PLC(START_PROGRAM) = 1\n')
             #END STAGE0
             #START STAGE1 : START/END Program
             elif(current_stage == 1):
                 #print('Stage 1!\nListening for PLC(START_PROGRAM) = 1')
                 #time.sleep(.01) # FINAL SLEEP REMOVAL #10ms artificial delay for testing
                 if(results_dict['StartProgram'][1] == True):
-                    print(f'({machine_num}) PLC(START_PROGRAM) went high! Time to trigger Keyence...')
+                    print(f'({machine_num}) PLC(START_PROGRAM) went high! Time to trigger Keyence...\n')
                     plc.write('Program:HM1450_VS' + machine_num + '.VPC1.I.Busy', True) #Busy goes HIGH while Keyence is scanning
 
                     #Actual Keyence Trigger (T1) here***
                     TriggerKeyence(sock, 'T1\r\n')
                     monitor_endScan(plc, machine_num, sock) # ends Keyence with EndScan
 
-                    print('Scan ended! PHOENIX(BUSY) is low')
+                    print('Scan ended! PHOENIX(BUSY) is low\n')
                     plc.write('Program:HM1450_VS' + machine_num + '.VPC1.I.Busy', False)
 
                     monitor_KeyenceNotRunning(sock) #verify Keyence has processed results and written out FTP files
 
                     #TODO PASS/FAIL RESULTS
-                    print(f'({machine_num}) PASS/FAIL/DONE data written out')
+                    print(f'({machine_num}) PASS/FAIL/DONE data written out\n')
                     plc.write(
                         ('Program:HM1450_VS' + machine_num + '.VPC1.I.Pass', True),
                         ('Program:HM1450_VS' + machine_num + '.VPC1.I.Done', True)
                     )
-                    print('PHOENIX(PASS) and PHOENIX(DONE) = 1')
-                    print('Stage 1 Complete!')
+                    print('PHOENIX(PASS) and PHOENIX(DONE) = 1\n')
+                    print('Stage 1 Complete!\n')
                     current_stage += 1
                     #time.sleep(1) # FINAL SLEEP REMOVAL
                 
             #Final Stage, reset to Stage 0 once PLC(END_PROGRAM) and PHOENIX(DONE) have been set low
             elif(current_stage == 2):
                 done_check = plc.read('Program:HM1450_VS' + machine_num + '.VPC1.I.Done')
-                print(f'({machine_num}) Stage 2 : Listening to PLC(END_PROGRAM) low to reset back to Stage 0')
+                #print(f'({machine_num}) Stage 2 : Listening to PLC(END_PROGRAM) low to reset back to Stage 0\n')
                 if(results_dict['EndProgram'][1] == True):
-                    print(f'({machine_num}) PLC(END_PROGRAM) is high. Dropping PHOENIX(DONE) low')
+                    print(f'({machine_num}) PLC(END_PROGRAM) is high. Dropping PHOENIX(DONE) low\n')
                     plc.write('Program:HM1450_VS' + machine_num + '.VPC1.I.Done', False)
                     
                 if(results_dict['EndProgram'][1] == False and done_check[1] == False):
-                    print(f'({machine_num}) PLC(END_PROGRAM) is low. Resetting PHOENIX to Stage 0')
+                    print(f'({machine_num}) PLC(END_PROGRAM) is low. Resetting PHOENIX to Stage 0\n')
                     current_stage = 0 # cycle complete, reset to stage 0
                 
                 #time.sleep(1) # FINAL SLEEP REMOVAL
