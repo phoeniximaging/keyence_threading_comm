@@ -450,10 +450,11 @@ def cycle(machine_num, sock, current_stage):
                 plc.write('Program:HM1450_VS' + machine_num + '.VPC1.I.Ready', True)
                 #time.sleep(3) # FINAL SLEEP REMOVAL
                 current_stage += 1 #incrementing out of STAGE0
+                print('Stage 1!\nListening for PLC(START_PROGRAM) = 1')
             #END STAGE0
             #START STAGE1 : START/END Program
             elif(current_stage == 1):
-                print('Stage 1!\nListening for PLC(START_PROGRAM) = 1')
+                #print('Stage 1!\nListening for PLC(START_PROGRAM) = 1')
                 #time.sleep(.01) # FINAL SLEEP REMOVAL #10ms artificial delay for testing
                 if(results_dict['StartProgram'][1] == True):
                     print(f'({machine_num}) PLC(START_PROGRAM) went high! Time to trigger Keyence...')
