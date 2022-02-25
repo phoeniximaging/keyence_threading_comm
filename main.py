@@ -308,7 +308,7 @@ def ExtKeyence(sock):
         #print('received "%s"' % data)
 # END 'ExtKeyence'
 
-# reading EndScan until it goes high to interrupt current Keyence scan
+# reading PLC(EndScan) until it goes high to interrupt current Keyence scan
 def monitor_endScan(plc, machine_num, sock):
     print('Listening for PLC(END_SCAN) high')
     current = plc.read('Program:HM1450_VS' + machine_num + '.VPC1.O.EndScan')
@@ -319,6 +319,20 @@ def monitor_endScan(plc, machine_num, sock):
 
     ExtKeyence(sock) #function to interrupt Keyence
     pass
+#END monitor_endScan
+
+# function to monitor the Keyence tag 'KeyenceNotRunning', when True (+00001.00000) we know Keyence has completed result processing and FTP file write
+def monitor_KeyenceNotRunning(sock):
+    print('Keyence Processing...')
+    msg = 'MR,#KeyenceNotRunning\r\n'
+    sock.sendall(msg.encode())
+    data = sock.recv(32)
+    while(data != b'MR,+0000000001.000000\r'):
+        sock.sendall(msg.encode())
+        data = sock.recv(32)
+    print('Keyence Processing Complete!')
+    pass
+#END monitor_KeyenceNotRunning
 
 # primary function, to be used by 14/15 threads
 def cycle(plc, machine_num, sock):
@@ -448,6 +462,8 @@ def cycle(plc, machine_num, sock):
 
                     print('Scan ended! PHOENIX(BUSY) is low')
                     plc.write('Program:HM1450_VS' + machine_num + '.VPC1.I.Busy', False)
+
+                    monitor_KeyenceNotRunning(sock) #verify Keyence has processed results and written out FTP files
 
                     #TODO PASS/FAIL RESULTS
                     print(f'({machine_num}) PASS/FAIL/DONE data written out')
