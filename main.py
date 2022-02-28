@@ -278,7 +278,7 @@ def TriggerKeyence(sock, item):
     trigger_end_time = datetime.datetime.now() # marking when '%Busy' is read off Keyence
     time_diff = (trigger_end_time - trigger_start_time)
     execution_time = time_diff.total_seconds() * 1000
-    print(f'\n\'T1\' sent to \'%Busy\' read in: {execution_time} ms\n')
+    print(f'\n\'T1\' sent to \'%Busy\' read in {execution_time} ms\n')
     '''
     if(execution_time > longest_time):
         longest_time = execution_time
@@ -328,7 +328,7 @@ def monitor_endScan(plc, machine_num, sock):
     current = plc.read('Program:HM1450_VS' + machine_num + '.VPC1.O.EndScan')
 
     while(current[1] != True):
-        current = plc.read('Program:HM1450_VS14.VPC1.O.EndScan')
+        current = plc.read('Program:HM1450_VS' + machine_num + '.VPC1.O.EndScan')
         time.sleep(.005)
     print('PLC(END_SCAN) went high!\n')
 
@@ -464,7 +464,7 @@ def cycle(machine_num, sock, current_stage):
                 timer_mirrored_to_StartProgram = datetime.datetime.now()
                 LoadProgram_to_Mirrored_diff = (timer_mirrored_to_StartProgram - load_to_trigger_start)
                 execution_time = LoadProgram_to_Mirrored_diff.total_seconds() * 1000
-                print(f'({machine_num}) LoadProgram(high) read until Mirror Complete in: {execution_time} ms')
+                print(f'({machine_num}) LoadProgram(high) read until Mirror Complete in {execution_time} ms')
 
                 #csv_results['DATA'] = csv_results_plc['DATA']
                 #time.sleep(1) # FINAL SLEEP REMOVAL #artificial pause to see step happening in testing
@@ -494,10 +494,11 @@ def cycle(machine_num, sock, current_stage):
                     print(f'({machine_num}) \'LoadKeyence\' to \'TriggerKeyence\' in {execution_time} ms')
                     monitor_endScan(plc, machine_num, sock) # ends Keyence with EndScan
 
+                    monitor_KeyenceNotRunning(sock) # verify Keyence has processed results and written out FTP files
+
+                    #BUSY HIGH TEST*
                     print(f'({machine_num}) Scan ended! PHOENIX(BUSY) is low\n')
                     plc.write('Program:HM1450_VS' + machine_num + '.VPC1.I.Busy', False)
-
-                    monitor_KeyenceNotRunning(sock) # verify Keyence has processed results and written out FTP files
 
                     #TODO PASS/FAIL RESULTS
                     print(f'({machine_num}) PASS/FAIL/DONE data written out\n')
@@ -535,12 +536,12 @@ def main():
     #t1 = threading.Thread(target=TriggerKeyence, args=[sock, 'T1\r\n']) #thread1, passing in socket connection and 'T1' keyence command
     #t2 = threading.Thread(target=ExtKeyence, args=[sock, 'TE,0\r\n', 'TE,1\r\n']) #thread2, uses 'TE,0' and 'TE,1' to cancel while scanning and reset to original state
     t1 = threading.Thread(target=cycle, args=['14', sock_14, current_stage_14])
-    #t2 = threading.Thread(target=cycle, args=['15', sock_15, current_stage_15])
+    t2 = threading.Thread(target=cycle, args=['15', sock_15, current_stage_15])
     print("Starting Threads (14 & 15)...")
     t1.start()
-    #t2.start()
-    t1.join()
-    #t2.join()
+    t2.start()
+    #t1.join()
+    #t2.join() # making sure threads complete before moving forward
 
     print('This code is beyond the threads!')
 
@@ -548,7 +549,10 @@ def main():
 
 #implicit 'main()' declaration
 if __name__ == '__main__':
+    main()
+    '''
     for x in range(1000):
         print(f'Main Loop {x}')
         main()
         #time.sleep(3) # time between cycles to eyeball if multiple scans are actually taking place
+    '''
