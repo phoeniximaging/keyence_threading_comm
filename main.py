@@ -457,7 +457,7 @@ def cycle(machine_num, sock, current_stage):
                 #TODO Send branch data to load Keyence for scan
                 LoadKeyence(sock,'MW,#PhoenixControlFaceBranch,' + str(results_dict['PartProgram'][1]) + '\r\n') #Keyence loading message, uses PartProgram from PLC to load specific branch
                 LoadKeyence(sock,'STW,0,"' + keyence_string + '\r\n') # passing external string to Keyence for file naming (?)
-                print(f'({machine_num})Keyence Loaded!\n')
+                print(f'({machine_num}) Keyence Loaded!\n')
 
                 #TODO Actually Mirror Data (write back to PLC)
                 #print('!Mirroring Data!\n')
@@ -480,6 +480,7 @@ def cycle(machine_num, sock, current_stage):
                 #print('Stage 1!\nListening for PLC(START_PROGRAM) = 1')
                 #time.sleep(.01) # FINAL SLEEP REMOVAL #10ms artificial delay for testing
                 if(results_dict['StartProgram'][1] == True):
+                    plc.write('Program:HM1450_VS' + machine_num + '.VPC1.I.Ready', False)
                     #start_timer = datetime.datetime.now() # START test timer
                     #timer_mirrored_to_StartProgram_diff = (start_timer - timer_mirrored_to_StartProgram)
                     #execution_time = timer_mirrored_to_StartProgram_diff.total_seconds() * 1000
@@ -488,7 +489,7 @@ def cycle(machine_num, sock, current_stage):
 
                     #Actual Keyence Trigger (T1) here***
                     TriggerKeyence(sock, 'T1\r\n')
-                    plc.write('Program:HM1450_VS' + machine_num + '.VPC1.I.Busy', True) #Busy goes HIGH while Keyence is scanning
+                    plc.write('Program:HM1450_VS' + machine_num + '.VPC1.I.Busy', True) # Busy goes HIGH while Keyence is scanning
                     #load_to_trigger_end = datetime.datetime.now()
                     #load_to_trigger_time_diff = (load_to_trigger_end - load_to_trigger_start)
                     #execution_time = load_to_trigger_time_diff.total_seconds() * 1000
@@ -502,12 +503,10 @@ def cycle(machine_num, sock, current_stage):
                     plc.write('Program:HM1450_VS' + machine_num + '.VPC1.I.Busy', False)
 
                     #TODO PASS/FAIL RESULTS
+                    plc.write('Program:HM1450_VS' + machine_num + '.VPC1.I.Pass', True)
+                    plc.write('Program:HM1450_VS' + machine_num + '.VPC1.I.Done', True)
                     print(f'({machine_num}) PASS/FAIL/DONE data written out\n')
-                    plc.write(
-                        ('Program:HM1450_VS' + machine_num + '.VPC1.I.Pass', True),
-                        ('Program:HM1450_VS' + machine_num + '.VPC1.I.Done', True)
-                    )
-                    print('PHOENIX(PASS) and PHOENIX(DONE) = 1\n')
+                    #print('PHOENIX(PASS) and PHOENIX(DONE) = 1\n')
                     print('Stage 1 Complete!\n')
                     current_stage += 1
                     #time.sleep(1) # FINAL SLEEP REMOVAL
@@ -522,6 +521,7 @@ def cycle(machine_num, sock, current_stage):
                     
                 if(results_dict['EndProgram'][1] == False and done_check[1] == False):
                     print(f'({machine_num}) PLC(END_PROGRAM) is low. Resetting PHOENIX to Stage 0\n')
+                    plc.write('Program:HM1450_VS' + machine_num + '.VPC1.I.Ready', True)
                     current_stage = 0 # cycle complete, reset to stage 0
                 
                 #time.sleep(1) # FINAL SLEEP REMOVAL
