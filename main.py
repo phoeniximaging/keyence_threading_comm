@@ -260,32 +260,32 @@ def TriggerKeyence(sock, item):
     global start_timer_END
 
     message = item
-    trigger_start_time = datetime.datetime.now() # marking when 'T1' is sent
+    #trigger_start_time = datetime.datetime.now() # marking when 'T1' is sent
     with lock:
         sock.sendall(message.encode())
         data = sock.recv(32)
         #print('received "%s"\n' % data)
-        start_timer_END = datetime.datetime.now() # END test timer
-    time_diff = (start_timer_END - start_timer)
-    execution_time = time_diff.total_seconds() * 1000
-    print(f'PLC(Start) read to Keyence(T1) read in : {execution_time} ms')
+        #start_timer_END = datetime.datetime.now() # END test timer
+    #time_diff = (start_timer_END - start_timer)
+    #execution_time = time_diff.total_seconds() * 1000
+    #print(f'PLC(Start) read to Keyence(T1) read in : {execution_time} ms')
 
     #am I using these right?(!)
     with lock:
         message = 'MR,%Busy\r\n' #initial read of '%Busy' to ensure scan is actually taking place (%Busy == 1)
         sock.sendall(message.encode())
-        #data = sock.recv(32)
+        data = sock.recv(32)
         #print(data)
-    trigger_end_time = datetime.datetime.now() # marking when '%Busy' is read off Keyence
-    time_diff = (trigger_end_time - trigger_start_time)
-    execution_time = time_diff.total_seconds() * 1000
-    print(f'\n\'T1\' sent to \'%Busy\' read in {execution_time} ms\n')
+    #trigger_end_time = datetime.datetime.now() # marking when '%Busy' is read off Keyence
+    #time_diff = (trigger_end_time - trigger_start_time)
+    #execution_time = time_diff.total_seconds() * 1000
+    #print(f'\n\'T1\' sent to \'%Busy\' read in {execution_time} ms\n')
     '''
     if(execution_time > longest_time):
         longest_time = execution_time
-    
+    '''
     # looping until '%Busy' == 0
-    while(data != b'MR,+0000000000.000000\r'):
+    while(data != b'MR,+0000000001.000000\r'):
         # utilizing 'with' to use thread lock
         message = 'MR,%Busy\r\n'
         with lock:
@@ -293,23 +293,23 @@ def TriggerKeyence(sock, item):
             data = sock.recv(32)
         #print('TriggerKeyence: received "%s"' % data)
         #print('Scanning...')
-        #time.sleep(.5) # FINAL SLEEP REMOVAL
-    '''
+        time.sleep(.001) # artificial 1ms pause between Keyence reads
+    
 #END 'TriggerKeyence'
 
 #sends specific Keyence Program (branch) info to pre-load/prepare Keyence for Trigger(T1)
 def LoadKeyence(sock, item):
-    print('LOADING KEYENCE\n')
+    #print('LOADING KEYENCE\n')
     message = item # keyence message
     with lock:
         sock.sendall(message.encode()) # sending branch info
-        print(f'\n\'{item}\' Sent!\n')
-        data = sock.recv(32)
+        #print(f'\n\'{item}\' Sent!\n')
+        #data = sock.recv(32)
         #print('received "%s"\n' % data)
 
 # sends 'TE,0' then 'TE,1' to the Keyence, resetting to original state (ready for new 'T1')
 def ExtKeyence(sock):
-    print('ExtKeyence!')
+    #print('ExtKeyence!')
     message = 'TE,0\r\n' # setting 'TE,0' first
     with lock:
         sock.sendall(message.encode()) # sending TE,0
@@ -453,19 +453,19 @@ def cycle(machine_num, sock, current_stage):
                     elif(results_dict['PartProgram'][1] == 12):
                         keyence_string = 'RearFace-45T3'
 
-                load_to_trigger_start = datetime.datetime.now()
+                #load_to_trigger_start = datetime.datetime.now()
                 #TODO Send branch data to load Keyence for scan
                 LoadKeyence(sock,'MW,#PhoenixControlFaceBranch,' + str(results_dict['PartProgram'][1]) + '\r\n') #Keyence loading message, uses PartProgram from PLC to load specific branch
                 LoadKeyence(sock,'STW,0,"' + keyence_string + '\r\n') # passing external string to Keyence for file naming (?)
-                print('Keyence Loaded!\n')
+                print(f'({machine_num})Keyence Loaded!\n')
 
                 #TODO Actually Mirror Data (write back to PLC)
                 #print('!Mirroring Data!\n')
                 write_plc(plc,machine_num,results_dict) #writing back mirrored values to PLC to confirm LOAD has been processed / sent to Keyence
-                timer_mirrored_to_StartProgram = datetime.datetime.now()
-                LoadProgram_to_Mirrored_diff = (timer_mirrored_to_StartProgram - load_to_trigger_start)
-                execution_time = LoadProgram_to_Mirrored_diff.total_seconds() * 1000
-                print(f'({machine_num}) LoadProgram(high) read until Mirror Complete in {execution_time} ms')
+                #timer_mirrored_to_StartProgram = datetime.datetime.now()
+                #LoadProgram_to_Mirrored_diff = (timer_mirrored_to_StartProgram - load_to_trigger_start)
+                #execution_time = LoadProgram_to_Mirrored_diff.total_seconds() * 1000
+                #print(f'({machine_num}) LoadProgram(high) read until Mirror Complete in {execution_time} ms')
 
                 #csv_results['DATA'] = csv_results_plc['DATA']
                 #time.sleep(1) # FINAL SLEEP REMOVAL #artificial pause to see step happening in testing
@@ -480,19 +480,19 @@ def cycle(machine_num, sock, current_stage):
                 #print('Stage 1!\nListening for PLC(START_PROGRAM) = 1')
                 #time.sleep(.01) # FINAL SLEEP REMOVAL #10ms artificial delay for testing
                 if(results_dict['StartProgram'][1] == True):
-                    start_timer = datetime.datetime.now() # START test timer
-                    timer_mirrored_to_StartProgram_diff = (start_timer - timer_mirrored_to_StartProgram)
-                    execution_time = timer_mirrored_to_StartProgram_diff.total_seconds() * 1000
-                    print(f'({machine_num}) Data Mirrored to \'StartProgram\' high in {execution_time} ms')
+                    #start_timer = datetime.datetime.now() # START test timer
+                    #timer_mirrored_to_StartProgram_diff = (start_timer - timer_mirrored_to_StartProgram)
+                    #execution_time = timer_mirrored_to_StartProgram_diff.total_seconds() * 1000
+                    #print(f'({machine_num}) Data Mirrored to \'StartProgram\' high in {execution_time} ms')
                     print(f'({machine_num}) PLC(START_PROGRAM) went high! Time to trigger Keyence...\n')
-                    plc.write('Program:HM1450_VS' + machine_num + '.VPC1.I.Busy', True) #Busy goes HIGH while Keyence is scanning
 
                     #Actual Keyence Trigger (T1) here***
                     TriggerKeyence(sock, 'T1\r\n')
-                    load_to_trigger_end = datetime.datetime.now()
-                    load_to_trigger_time_diff = (load_to_trigger_end - load_to_trigger_start)
-                    execution_time = load_to_trigger_time_diff.total_seconds() * 1000
-                    print(f'({machine_num}) \'LoadKeyence\' to \'TriggerKeyence\' in {execution_time} ms')
+                    plc.write('Program:HM1450_VS' + machine_num + '.VPC1.I.Busy', True) #Busy goes HIGH while Keyence is scanning
+                    #load_to_trigger_end = datetime.datetime.now()
+                    #load_to_trigger_time_diff = (load_to_trigger_end - load_to_trigger_start)
+                    #execution_time = load_to_trigger_time_diff.total_seconds() * 1000
+                    #print(f'({machine_num}) \'LoadKeyence\' to \'TriggerKeyence\' in {execution_time} ms')
                     monitor_endScan(plc, machine_num, sock) # ends Keyence with EndScan
 
                     monitor_KeyenceNotRunning(sock) # verify Keyence has processed results and written out FTP files
