@@ -273,15 +273,16 @@ def TriggerKeyence(sock, item):
     with lock:
         message = 'MR,%Busy\r\n' #initial read of '%Busy' to ensure scan is actually taking place (%Busy == 1)
         sock.sendall(message.encode())
-        data = sock.recv(32)
+        #data = sock.recv(32)
         #print(data)
     trigger_end_time = datetime.datetime.now() # marking when '%Busy' is read off Keyence
     time_diff = (trigger_end_time - trigger_start_time)
     execution_time = time_diff.total_seconds() * 1000
     print(f'\n\'T1\' sent to \'%Busy\' read in: {execution_time} ms\n')
+    '''
     if(execution_time > longest_time):
         longest_time = execution_time
-
+    
     # looping until '%Busy' == 0
     while(data != b'MR,+0000000000.000000\r'):
         # utilizing 'with' to use thread lock
@@ -292,6 +293,7 @@ def TriggerKeyence(sock, item):
         #print('TriggerKeyence: received "%s"' % data)
         #print('Scanning...')
         #time.sleep(.5) # FINAL SLEEP REMOVAL
+    '''
 #END 'TriggerKeyence'
 
 #sends specific Keyence Program (branch) info to pre-load/prepare Keyence for Trigger(T1)
@@ -327,6 +329,7 @@ def monitor_endScan(plc, machine_num, sock):
 
     while(current[1] != True):
         current = plc.read('Program:HM1450_VS14.VPC1.O.EndScan')
+        time.sleep(.005)
     print('PLC(END_SCAN) went high!\n')
 
     ExtKeyence(sock) #function to interrupt Keyence
@@ -342,6 +345,7 @@ def monitor_KeyenceNotRunning(sock):
     while(data != b'MR,+0000000001.000000\r'):
         sock.sendall(msg.encode())
         data = sock.recv(32)
+        time.sleep(.001)
     print('Keyence Processing Complete!\n')
     pass
 #END monitor_KeyenceNotRunning
@@ -373,7 +377,7 @@ def cycle(machine_num, sock, current_stage):
                 while(results_dict['LoadProgram'][1] != True):
                     results_dict = read_plc_dict(plc, machine_num) # continuous PLC read
                     #print(csv_results)
-                    #time.sleep(1) # FINAL SLEEP REMOVAL
+                    time.sleep(.005) # 5ms pause between reads
 
                 #print('PLC(LOAD_PROGRAM) went high!\n')
                 # Once PLC(LOAD_PROGRAM) goes high, mirror data and set Phoenix(READY) high, signifies end of "loading" process
@@ -448,6 +452,7 @@ def cycle(machine_num, sock, current_stage):
                     elif(results_dict['PartProgram'][1] == 12):
                         keyence_string = 'RearFace-45T3'
 
+                load_to_trigger_start = datetime.datetime.now()
                 #TODO Send branch data to load Keyence for scan
                 LoadKeyence(sock,'MW,#PhoenixControlFaceBranch,' + str(results_dict['PartProgram'][1]) + '\r\n') #Keyence loading message, uses PartProgram from PLC to load specific branch
                 LoadKeyence(sock,'STW,0,"' + keyence_string + '\r\n') # passing external string to Keyence for file naming (?)
@@ -456,6 +461,11 @@ def cycle(machine_num, sock, current_stage):
                 #TODO Actually Mirror Data (write back to PLC)
                 #print('!Mirroring Data!\n')
                 write_plc(plc,machine_num,results_dict) #writing back mirrored values to PLC to confirm LOAD has been processed / sent to Keyence
+                timer_mirrored_to_StartProgram = datetime.datetime.now()
+                LoadProgram_to_Mirrored_diff = (timer_mirrored_to_StartProgram - load_to_trigger_start)
+                execution_time = LoadProgram_to_Mirrored_diff.total_seconds() * 1000
+                print(f'({machine_num}) LoadProgram(high) read until Mirror Complete in: {execution_time} ms')
+
                 #csv_results['DATA'] = csv_results_plc['DATA']
                 #time.sleep(1) # FINAL SLEEP REMOVAL #artificial pause to see step happening in testing
                 print(f'({machine_num}) Data Mirrored, Setting \'READY\' high\n')
@@ -470,17 +480,24 @@ def cycle(machine_num, sock, current_stage):
                 #time.sleep(.01) # FINAL SLEEP REMOVAL #10ms artificial delay for testing
                 if(results_dict['StartProgram'][1] == True):
                     start_timer = datetime.datetime.now() # START test timer
+                    timer_mirrored_to_StartProgram_diff = (start_timer - timer_mirrored_to_StartProgram)
+                    execution_time = timer_mirrored_to_StartProgram_diff.total_seconds() * 1000
+                    print(f'({machine_num}) Data Mirrored to \'StartProgram\' high in {execution_time} ms')
                     print(f'({machine_num}) PLC(START_PROGRAM) went high! Time to trigger Keyence...\n')
                     plc.write('Program:HM1450_VS' + machine_num + '.VPC1.I.Busy', True) #Busy goes HIGH while Keyence is scanning
 
                     #Actual Keyence Trigger (T1) here***
                     TriggerKeyence(sock, 'T1\r\n')
+                    load_to_trigger_end = datetime.datetime.now()
+                    load_to_trigger_time_diff = (load_to_trigger_end - load_to_trigger_start)
+                    execution_time = load_to_trigger_time_diff.total_seconds() * 1000
+                    print(f'({machine_num}) \'LoadKeyence\' to \'TriggerKeyence\' in {execution_time} ms')
                     monitor_endScan(plc, machine_num, sock) # ends Keyence with EndScan
 
-                    print('Scan ended! PHOENIX(BUSY) is low\n')
+                    print(f'({machine_num}) Scan ended! PHOENIX(BUSY) is low\n')
                     plc.write('Program:HM1450_VS' + machine_num + '.VPC1.I.Busy', False)
 
-                    monitor_KeyenceNotRunning(sock) #verify Keyence has processed results and written out FTP files
+                    monitor_KeyenceNotRunning(sock) # verify Keyence has processed results and written out FTP files
 
                     #TODO PASS/FAIL RESULTS
                     print(f'({machine_num}) PASS/FAIL/DONE data written out\n')
@@ -518,12 +535,12 @@ def main():
     #t1 = threading.Thread(target=TriggerKeyence, args=[sock, 'T1\r\n']) #thread1, passing in socket connection and 'T1' keyence command
     #t2 = threading.Thread(target=ExtKeyence, args=[sock, 'TE,0\r\n', 'TE,1\r\n']) #thread2, uses 'TE,0' and 'TE,1' to cancel while scanning and reset to original state
     t1 = threading.Thread(target=cycle, args=['14', sock_14, current_stage_14])
-    t2 = threading.Thread(target=cycle, args=['15', sock_15, current_stage_15])
-    print("Starting Threads (14/15)...")
+    #t2 = threading.Thread(target=cycle, args=['15', sock_15, current_stage_15])
+    print("Starting Threads (14 & 15)...")
     t1.start()
-    t2.start()
+    #t2.start()
     t1.join()
-    t2.join()
+    #t2.join()
 
     print('This code is beyond the threads!')
 
