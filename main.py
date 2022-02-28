@@ -8,6 +8,7 @@ from pycomm3 import LogixDriver
 from pycomm3.cip.data_types import DINT, UINT
 import json
 import os
+from multiprocessing import Process
 
 '''
 This is the first testing thread for Elwema using threading and an all-in-one Python program.
@@ -535,6 +536,9 @@ def main():
     #declaring threads, does not run
     #t1 = threading.Thread(target=TriggerKeyence, args=[sock, 'T1\r\n']) #thread1, passing in socket connection and 'T1' keyence command
     #t2 = threading.Thread(target=ExtKeyence, args=[sock, 'TE,0\r\n', 'TE,1\r\n']) #thread2, uses 'TE,0' and 'TE,1' to cancel while scanning and reset to original state
+
+    # original threading tests
+    
     t1 = threading.Thread(target=cycle, args=['14', sock_14, current_stage_14])
     t2 = threading.Thread(target=cycle, args=['15', sock_15, current_stage_15])
     print("Starting Threads (14 & 15)...")
@@ -542,6 +546,16 @@ def main():
     t2.start()
     #t1.join()
     #t2.join() # making sure threads complete before moving forward
+    
+
+    '''
+    p1 = Process(target=cycle, args=('14', sock_14, current_stage_14))
+    p1.start()
+    p2 = Process(target=cycle, args=('15', sock_15, current_stage_15))
+    p2.start()
+    p1.join()
+    p2.join()
+    '''
 
     print('This code is beyond the threads!')
 
