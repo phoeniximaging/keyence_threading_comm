@@ -398,6 +398,13 @@ def cycle(machine_num, sock, current_stage):
             results_dict = read_plc_dict(plc, machine_num) #initial PLC tag read for 'robot 14' values
             #print(results_dict['LoadProgram'][1]) #how to print the value of one specific tag
 
+            # PLC read and check to reset system off PLC(Reset) tag
+            reset_check = plc.read('Program:HM1450_VS' + machine_num + '.VPC1.O.Reset')
+            if (reset_check[1] == True):
+                print(f'({machine_num}) Reset Detected! Setting back to Stage 0...')
+                current_stage = 0
+                plc.write('Program:HM1450_VS' + machine_num + '.VPC1.O.Reset', False)
+
             #STAGE0 CHECK HERE
             if(current_stage == 0):
                 print(f'({machine_num}) Setting Boolean Flags to Stage 0\n')
@@ -408,7 +415,7 @@ def cycle(machine_num, sock, current_stage):
                     ('Program:HM1450_VS' + machine_num + '.VPC1.I.Fail', False)
                 )
                 plc.write('Program:HM1450_VS' + machine_num + '.VPC1.I.Ready', True)
-                print(f'({machine_num}) Flushing PLC(Result) tag data...')
+                print(f'({machine_num}) Flushing PLC(Result) tag data...\n')
                 write_plc_flush(plc,machine_num) # defaults all .I Phoenix tags at start of cycle
                 
                 print(f'({machine_num}) Stage 0 : Listening for PLC(LOAD_PROGRAM) = 1\n')
@@ -603,7 +610,7 @@ def main():
     p2.join()
     '''
 
-    print('This code is beyond the threads!')
+    #print('This code is beyond the threads!')
 
 #END 'main'
 
