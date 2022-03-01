@@ -264,7 +264,7 @@ def TriggerKeyence(sock, item):
     with lock:
         sock.sendall(message.encode())
         data = sock.recv(32)
-        #print('received "%s"\n' % data)
+        print('received "%s"\n' % data)
         #start_timer_END = datetime.datetime.now() # END test timer
     #time_diff = (start_timer_END - start_timer)
     #execution_time = time_diff.total_seconds() * 1000
@@ -272,10 +272,10 @@ def TriggerKeyence(sock, item):
 
     #am I using these right?(!)
     with lock:
-        message = 'MR,%Busy\r\n' #initial read of '%Busy' to ensure scan is actually taking place (%Busy == 1)
+        message = 'MR,%Trg1Ready\r\n' #initial read of '%Busy' to ensure scan is actually taking place (%Busy == 1)
         sock.sendall(message.encode())
         data = sock.recv(32)
-        #print(data)
+        print(f'%Trg1Ready = {data}')
     #trigger_end_time = datetime.datetime.now() # marking when '%Busy' is read off Keyence
     #time_diff = (trigger_end_time - trigger_start_time)
     #execution_time = time_diff.total_seconds() * 1000
@@ -285,15 +285,18 @@ def TriggerKeyence(sock, item):
         longest_time = execution_time
     '''
     # looping until '%Busy' == 0
-    while(data != b'MR,+0000000001.000000\r'):
+    while(data != b'MR,+0000000000.000000\r'):
+    #while(data != b'T1\r'):
         # utilizing 'with' to use thread lock
-        message = 'MR,%Busy\r\n'
+        #message = 'T1\r\n'
+        message = 'MR,%Trg1Ready\r\n'
         with lock:
             sock.sendall(message.encode())
             data = sock.recv(32)
-        #print('TriggerKeyence: received "%s"' % data)
+        print('TriggerKeyence: received "%s"' % data)
         #print('Scanning...')
-        time.sleep(.001) # artificial 1ms pause between Keyence reads
+        time.sleep(.2) # artificial 1ms pause between Keyence reads
+    print('Keyence %Trg1Ready verified!')
     
 #END 'TriggerKeyence'
 
@@ -304,7 +307,7 @@ def LoadKeyence(sock, item):
     with lock:
         sock.sendall(message.encode()) # sending branch info
         #print(f'\n\'{item}\' Sent!\n')
-        #data = sock.recv(32)
+        data = sock.recv(32)
         #print('received "%s"\n' % data)
 
 # sends 'TE,0' then 'TE,1' to the Keyence, resetting to original state (ready for new 'T1')
@@ -313,19 +316,19 @@ def ExtKeyence(sock):
     message = 'TE,0\r\n' # setting 'TE,0' first
     with lock:
         sock.sendall(message.encode()) # sending TE,0
+        data = sock.recv(32)
         #print('\n\'TE,0\' Sent!\n')
 
         message = 'TE,1\r\n' # setting 'TE,1' to reset
         sock.sendall(message.encode()) # sending, TE,1
         #print('\'TE,1\' Sent!\n')
-
-        #data = sock.recv(32)
+        data = sock.recv(32)
         #print('received "%s"' % data)
 # END 'ExtKeyence'
 
 # reading PLC(EndScan) until it goes high to interrupt current Keyence scan
 def monitor_endScan(plc, machine_num, sock):
-    #print('Listening for PLC(END_SCAN) high\n')
+    print('Listening for PLC(END_SCAN) high\n')
     current = plc.read('Program:HM1450_VS' + machine_num + '.VPC1.O.EndScan')
 
     while(current[1] != True):
@@ -340,6 +343,7 @@ def monitor_endScan(plc, machine_num, sock):
 # function to monitor the Keyence tag 'KeyenceNotRunning', when True (+00001.00000) we know Keyence has completed result processing and FTP file write
 def monitor_KeyenceNotRunning(sock):
     print('Keyence Processing...')
+    #msg = 'MR,#KeyenceNotRunning\r\n'
     msg = 'MR,#KeyenceNotRunning\r\n'
     sock.sendall(msg.encode())
     data = sock.recv(32)
@@ -366,12 +370,12 @@ def cycle(machine_num, sock, current_stage):
             if(current_stage == 0):
                 print(f'({machine_num}) Setting Boolean Flags to Stage 0\n')
                 plc.write(
-                ('Program:HM1450_VS' + machine_num + '.VPC1.I.Ready', True),
-                ('Program:HM1450_VS' + machine_num + '.VPC1.I.Busy', False),
-                ('Program:HM1450_VS' + machine_num + '.VPC1.I.Done', False),
-                ('Program:HM1450_VS' + machine_num + '.VPC1.I.Pass', False),
-                ('Program:HM1450_VS' + machine_num + '.VPC1.I.Fail', False)
+                    ('Program:HM1450_VS' + machine_num + '.VPC1.I.Busy', False),
+                    ('Program:HM1450_VS' + machine_num + '.VPC1.I.Done', False),
+                    ('Program:HM1450_VS' + machine_num + '.VPC1.I.Pass', False),
+                    ('Program:HM1450_VS' + machine_num + '.VPC1.I.Fail', False)
                 )
+                plc.write('Program:HM1450_VS' + machine_num + '.VPC1.I.Ready', True)
                 
                 print(f'({machine_num}) Stage 0 : Listening for PLC(LOAD_PROGRAM) = 1\n')
                 #reading PLC until LOAD_PROGRAM goes high
@@ -455,6 +459,7 @@ def cycle(machine_num, sock, current_stage):
 
                 #load_to_trigger_start = datetime.datetime.now()
                 #TODO Send branch data to load Keyence for scan
+                print(f'Loading: {keyence_string}')
                 LoadKeyence(sock,'MW,#PhoenixControlFaceBranch,' + str(results_dict['PartProgram'][1]) + '\r\n') #Keyence loading message, uses PartProgram from PLC to load specific branch
                 LoadKeyence(sock,'STW,0,"' + keyence_string + '\r\n') # passing external string to Keyence for file naming (?)
                 print(f'({machine_num}) Keyence Loaded!\n')
@@ -489,7 +494,9 @@ def cycle(machine_num, sock, current_stage):
 
                     #Actual Keyence Trigger (T1) here***
                     TriggerKeyence(sock, 'T1\r\n')
-                    plc.write('Program:HM1450_VS' + machine_num + '.VPC1.I.Busy', True) # Busy goes HIGH while Keyence is scanning
+                    print('WAITING 10 SECONDS (TEST)')
+                    time.sleep(10) #testing pause***
+                    #plc.write('Program:HM1450_VS' + machine_num + '.VPC1.I.Busy', True) # Busy goes HIGH while Keyence is scanning
                     #load_to_trigger_end = datetime.datetime.now()
                     #load_to_trigger_time_diff = (load_to_trigger_end - load_to_trigger_start)
                     #execution_time = load_to_trigger_time_diff.total_seconds() * 1000
@@ -517,6 +524,11 @@ def cycle(machine_num, sock, current_stage):
                 #print(f'({machine_num}) Stage 2 : Listening to PLC(END_PROGRAM) low to reset back to Stage 0\n')
                 if(results_dict['EndProgram'][1] == True):
                     print(f'({machine_num}) PLC(END_PROGRAM) is high. Dropping PHOENIX(DONE) low\n')
+                    plc.write(
+                        ('Program:HM1450_VS' + machine_num + '.VPC1.I.Busy', False),
+                        ('Program:HM1450_VS' + machine_num + '.VPC1.I.Pass', False),
+                        ('Program:HM1450_VS' + machine_num + '.VPC1.I.Fail', False)
+                    )
                     plc.write('Program:HM1450_VS' + machine_num + '.VPC1.I.Done', False)
                     
                 if(results_dict['EndProgram'][1] == False and done_check[1] == False):
