@@ -194,6 +194,38 @@ def write_plc(plc, machine_num, results):
     pass
 #END write_plc
 
+def write_plc_flush(plc, machine_num):
+
+    plc.write(('Program:HM1450_VS' + machine_num + '.VPC1.I.PartType', 0),
+    ('Program:HM1450_VS' + machine_num + '.VPC1.I.PartProgram', 0),
+    ('Program:HM1450_VS' + machine_num + '.VPC1.I.ScanNumber', 0),
+    ('Program:HM1450_VS' + machine_num + '.VPC1.I.PUN{64}', 0),
+    ('Program:HM1450_VS' + machine_num + '.VPC1.I.GMPartNumber{8}', 0),
+    ('Program:HM1450_VS' + machine_num + '.VPC1.I.Module', 0),
+    ('Program:HM1450_VS' + machine_num + '.VPC1.I.PlantCode', 0),
+    ('Program:HM1450_VS' + machine_num + '.VPC1.I.Month', 0),
+    ('Program:HM1450_VS' + machine_num + '.VPC1.I.Day', 0),
+    ('Program:HM1450_VS' + machine_num + '.VPC1.I.Year', 0),
+    ('Program:HM1450_VS' + machine_num + '.VPC1.I.Hour', 0),
+    ('Program:HM1450_VS' + machine_num + '.VPC1.I.Minute', 0),
+    ('Program:HM1450_VS' + machine_num + '.VPC1.I.Second', 0),
+    ('Program:HM1450_VS' + machine_num + '.VPC1.I.QualityCheckOP110', 0),
+    ('Program:HM1450_VS' + machine_num + '.VPC1.I.QualityCheckOP120', 0),
+    ('Program:HM1450_VS' + machine_num + '.VPC1.I.QualityCheckOP130', 0),
+    ('Program:HM1450_VS' + machine_num + '.VPC1.I.QualityCheckOP140', 0),
+    ('Program:HM1450_VS' + machine_num + '.VPC1.I.QualityCheckOP150', 0),
+    ('Program:HM1450_VS' + machine_num + '.VPC1.I.QualityCheckOP310', 0),
+    ('Program:HM1450_VS' + machine_num + '.VPC1.I.QualityCheckOP320', 0),
+    ('Program:HM1450_VS' + machine_num + '.VPC1.I.QualityCheckOP330', 0),
+    ('Program:HM1450_VS' + machine_num + '.VPC1.I.QualityCheckOP340', 0),
+    ('Program:HM1450_VS' + machine_num + '.VPC1.I.QualityCheckOP360', 0),
+    ('Program:HM1450_VS' + machine_num + '.VPC1.I.QualityCheckOP370', 0),
+    ('Program:HM1450_VS' + machine_num + '.VPC1.I.QualityCheckOP380', 0),
+    ('Program:HM1450_VS' + machine_num + '.VPC1.I.QualityCheckOP390', 0),
+    ('Program:HM1450_VS' + machine_num + '.VPC1.I.QualityCheckScoutPartTracking', 0)
+    )
+# end write_plc_flush
+
 #used to verify values when writing back to PLC
 def protected_ord(value):
     if len(value) > 1:
@@ -376,6 +408,8 @@ def cycle(machine_num, sock, current_stage):
                     ('Program:HM1450_VS' + machine_num + '.VPC1.I.Fail', False)
                 )
                 plc.write('Program:HM1450_VS' + machine_num + '.VPC1.I.Ready', True)
+                print(f'({machine_num}) Flushing PLC(Result) tag data...')
+                write_plc_flush(plc,machine_num) # defaults all .I Phoenix tags at start of cycle
                 
                 print(f'({machine_num}) Stage 0 : Listening for PLC(LOAD_PROGRAM) = 1\n')
                 #reading PLC until LOAD_PROGRAM goes high
@@ -494,9 +528,9 @@ def cycle(machine_num, sock, current_stage):
 
                     #Actual Keyence Trigger (T1) here***
                     TriggerKeyence(sock, 'T1\r\n')
-                    print('WAITING 10 SECONDS (TEST)')
-                    time.sleep(10) #testing pause***
-                    #plc.write('Program:HM1450_VS' + machine_num + '.VPC1.I.Busy', True) # Busy goes HIGH while Keyence is scanning
+                    print('WAITING 2 SECONDS (TEST)')
+                    time.sleep(2) #testing pause***
+                    plc.write('Program:HM1450_VS' + machine_num + '.VPC1.I.Busy', True) # Busy goes HIGH while Keyence is scanning
                     #load_to_trigger_end = datetime.datetime.now()
                     #load_to_trigger_time_diff = (load_to_trigger_end - load_to_trigger_start)
                     #execution_time = load_to_trigger_time_diff.total_seconds() * 1000
