@@ -419,15 +419,7 @@ def cycle(machine_num, sock, current_stage):
     print(f'({machine_num}) Connecting to PLC\n')
     with LogixDriver('120.57.42.114') as plc:
         while(True):
-            if keyboard.is_pressed('p'):
-                is_paused = True
-
-            if(is_paused):
-                while(True):
-                    print(f'({machine_num})Paused...')
-                    time.sleep(1)
-                    if keyboard.is_pressed('r'):
-                        is_paused = False
+            check_pause() # user pause if 'p' is pressed
 
             #print(f'({machine_num}) Reading PLC\n')
             results_dict = read_plc_dict(plc, machine_num) #initial PLC tag read for 'robot 14' values
@@ -456,6 +448,7 @@ def cycle(machine_num, sock, current_stage):
                 print(f'({machine_num}) Stage 0 : Listening for PLC(LOAD_PROGRAM) = 1\n')
                 #reading PLC until LOAD_PROGRAM goes high
                 while(results_dict['LoadProgram'][1] != True):
+                    check_pause() # user pause if 'p' is pressed
                     results_dict = read_plc_dict(plc, machine_num) # continuous PLC read
                     #print(csv_results)
                     time.sleep(.005) # 5ms pause between reads
@@ -571,8 +564,8 @@ def cycle(machine_num, sock, current_stage):
                     #Actual Keyence Trigger (T1) here***
                     start_timer_Trigger_to_Busy = datetime.datetime.now()
                     TriggerKeyence(sock, 'T1\r\n')
-                    print('WAITING 1 SECOND (TEST)')
-                    time.sleep(1) #testing pause***
+                    print('WAITING 2 SECONDS (TEST)')
+                    time.sleep(2) #testing pause***
                     plc.write('Program:HM1450_VS' + machine_num + '.VPC1.I.Busy', True) # Busy goes HIGH while Keyence is scanning
                     end_timer_Trigger_to_Busy = datetime.datetime.now()
                     diff_timer_Trigger_to_Busy = (end_timer_Trigger_to_Busy - start_timer_Trigger_to_Busy)
@@ -616,14 +609,8 @@ def cycle(machine_num, sock, current_stage):
                     print('HOLD \'p\' HERE TO PAUSE BEFORE PLC(READY) GOES HIGH')
                     time.sleep(2.5)
                     
-                    if keyboard.is_pressed('p'):
-                        is_paused = True
-                    if(is_paused):
-                        while(True):
-                            print(f'({machine_num})(END) Paused...')
-                            time.sleep(1)
-                            if keyboard.is_pressed('r'):
-                                is_paused = False
+                    check_pause() # checking if user wants to pause
+
                 if(results_dict['EndProgram'][1] == False and done_check[1] == False):
                     print(f'({machine_num}) PLC(END_PROGRAM) is low. Resetting PHOENIX to Stage 0\n')
                     
@@ -636,7 +623,34 @@ def cycle(machine_num, sock, current_stage):
 
 # function to check if user is holding down 'p' to pause the cycle, then resumes on next 'p'
 def check_pause():
-    pass
+    running = True
+    display = True
+    block = False
+
+    #print('Checking for \'p\' to pause...')
+
+    while (running == True):
+        if keyboard.is_pressed('p'):
+            if block == False:
+                display = not display
+                block = True
+        else:
+            block = False
+            running = False
+        if display:
+            #print('No Pause')
+            #time.sleep(1)
+            pass
+        else:
+            print('Pausing!')
+            time.sleep(5) #stops accidental toggle
+            while(running == True):
+                print('Paused...')
+                if keyboard.is_pressed('p'):
+                    running = False
+                    print('Unpause!')
+                    time.sleep(5) #stops accidental toggle
+                time.sleep(1)
 #END check_pause
 
 #START main()
