@@ -9,6 +9,7 @@ from pycomm3.cip.data_types import DINT, UINT
 import json
 import os
 from multiprocessing import Process
+import keyboard
 
 '''
 This is the first testing thread for Elwema using threading and an all-in-one Python program.
@@ -196,11 +197,14 @@ def write_plc(plc, machine_num, results):
 
 def write_plc_flush(plc, machine_num):
 
+    plc_writer_PUN = [72, 101, 108, 108, 111, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35]
+    plc_writer_GMPartNumber = [35, 35, 35, 35, 35, 35, 35, 35]
+
     plc.write(('Program:HM1450_VS' + machine_num + '.VPC1.I.PartType', 0),
     ('Program:HM1450_VS' + machine_num + '.VPC1.I.PartProgram', 0),
     ('Program:HM1450_VS' + machine_num + '.VPC1.I.ScanNumber', 0),
-    ('Program:HM1450_VS' + machine_num + '.VPC1.I.PUN{64}', 0),
-    ('Program:HM1450_VS' + machine_num + '.VPC1.I.GMPartNumber{8}', 0),
+    ('Program:HM1450_VS' + machine_num + '.VPC1.I.PUN{64}', plc_writer_PUN),
+    ('Program:HM1450_VS' + machine_num + '.VPC1.I.GMPartNumber{8}', plc_writer_GMPartNumber),
     ('Program:HM1450_VS' + machine_num + '.VPC1.I.Module', 0),
     ('Program:HM1450_VS' + machine_num + '.VPC1.I.PlantCode', 0),
     ('Program:HM1450_VS' + machine_num + '.VPC1.I.Month', 0),
@@ -290,6 +294,26 @@ def TriggerKeyence(sock, item):
     global slow_count
     global longest_time
     global start_timer_END
+
+    #verify Keyence(Trg1Ready) is high before we send a 'T1' trigger
+    with lock:
+        message = 'MR,%Trg1Ready\r\n' #initial read of '%Busy' to ensure scan is actually taking place (%Busy == 1)
+        sock.sendall(message.encode())
+        data = sock.recv(32)
+        print(f'%Trg1Ready = {data}')
+
+    # looping until '%Busy' == 0
+    while(data != b'MR,+0000000001.000000\r'):
+        print(f'Keyence(Trg1Ready) was not high, \'T1\' not sent!')
+        # utilizing 'with' to use thread lock
+        #message = 'T1\r\n'
+        message = 'MR,%Trg1Ready\r\n'
+        with lock:
+            sock.sendall(message.encode())
+            data = sock.recv(32)
+        print('TriggerKeyence: received "%s"' % data)
+        #print('Scanning...')
+        time.sleep(.2) # artificial 1ms pause between Keyence reads
 
     message = item
     #trigger_start_time = datetime.datetime.now() # marking when 'T1' is sent
@@ -390,10 +414,21 @@ def monitor_KeyenceNotRunning(sock):
 # primary function, to be used by 14/15 threads
 def cycle(machine_num, sock, current_stage):
     global start_timer #testing
+    is_paused = False
 
     print(f'({machine_num}) Connecting to PLC\n')
     with LogixDriver('120.57.42.114') as plc:
         while(True):
+            if keyboard.is_pressed('p'):
+                is_paused = True
+
+            if(is_paused):
+                while(True):
+                    print(f'({machine_num})Paused...')
+                    time.sleep(1)
+                    if keyboard.is_pressed('r'):
+                        is_paused = False
+
             #print(f'({machine_num}) Reading PLC\n')
             results_dict = read_plc_dict(plc, machine_num) #initial PLC tag read for 'robot 14' values
             #print(results_dict['LoadProgram'][1]) #how to print the value of one specific tag
@@ -414,9 +449,9 @@ def cycle(machine_num, sock, current_stage):
                     ('Program:HM1450_VS' + machine_num + '.VPC1.I.Pass', False),
                     ('Program:HM1450_VS' + machine_num + '.VPC1.I.Fail', False)
                 )
-                plc.write('Program:HM1450_VS' + machine_num + '.VPC1.I.Ready', True)
                 print(f'({machine_num}) Flushing PLC(Result) tag data...\n')
                 write_plc_flush(plc,machine_num) # defaults all .I Phoenix tags at start of cycle
+                plc.write('Program:HM1450_VS' + machine_num + '.VPC1.I.Ready', True)
                 
                 print(f'({machine_num}) Stage 0 : Listening for PLC(LOAD_PROGRAM) = 1\n')
                 #reading PLC until LOAD_PROGRAM goes high
@@ -534,10 +569,15 @@ def cycle(machine_num, sock, current_stage):
                     print(f'({machine_num}) PLC(START_PROGRAM) went high! Time to trigger Keyence...\n')
 
                     #Actual Keyence Trigger (T1) here***
+                    start_timer_Trigger_to_Busy = datetime.datetime.now()
                     TriggerKeyence(sock, 'T1\r\n')
-                    print('WAITING 2 SECONDS (TEST)')
-                    time.sleep(2) #testing pause***
+                    print('WAITING 1 SECOND (TEST)')
+                    time.sleep(1) #testing pause***
                     plc.write('Program:HM1450_VS' + machine_num + '.VPC1.I.Busy', True) # Busy goes HIGH while Keyence is scanning
+                    end_timer_Trigger_to_Busy = datetime.datetime.now()
+                    diff_timer_Trigger_to_Busy = (end_timer_Trigger_to_Busy - start_timer_Trigger_to_Busy)
+                    execution_time = diff_timer_Trigger_to_Busy.total_seconds() * 1000
+                    print(f'({machine_num}) TriggerKeyence to PLC(Busy) high in: {execution_time} ms')
                     #load_to_trigger_end = datetime.datetime.now()
                     #load_to_trigger_time_diff = (load_to_trigger_end - load_to_trigger_start)
                     #execution_time = load_to_trigger_time_diff.total_seconds() * 1000
@@ -571,15 +611,33 @@ def cycle(machine_num, sock, current_stage):
                         ('Program:HM1450_VS' + machine_num + '.VPC1.I.Fail', False)
                     )
                     plc.write('Program:HM1450_VS' + machine_num + '.VPC1.I.Done', False)
+
+                    print(f'({machine_num}) Artificial Pause (2.5 seconds)...Then Ready high')
+                    print('HOLD \'p\' HERE TO PAUSE BEFORE PLC(READY) GOES HIGH')
+                    time.sleep(2.5)
                     
+                    if keyboard.is_pressed('p'):
+                        is_paused = True
+                    if(is_paused):
+                        while(True):
+                            print(f'({machine_num})(END) Paused...')
+                            time.sleep(1)
+                            if keyboard.is_pressed('r'):
+                                is_paused = False
                 if(results_dict['EndProgram'][1] == False and done_check[1] == False):
                     print(f'({machine_num}) PLC(END_PROGRAM) is low. Resetting PHOENIX to Stage 0\n')
+                    
                     plc.write('Program:HM1450_VS' + machine_num + '.VPC1.I.Ready', True)
                     current_stage = 0 # cycle complete, reset to stage 0
                 
                 #time.sleep(1) # FINAL SLEEP REMOVAL
             time.sleep(.005) #artificial loop timer
         pass
+
+# function to check if user is holding down 'p' to pause the cycle, then resumes on next 'p'
+def check_pause():
+    pass
+#END check_pause
 
 #START main()
 def main():
