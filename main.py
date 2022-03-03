@@ -14,7 +14,7 @@ import keyboard
 '''
 This is the first testing thread for Elwema using threading and an all-in-one Python program.
 
-Theoretically runs machine 14 and 15 simultaneously, UNTESTED
+Theoretically runs machine 14 and 15 simultaneously, semi-tested (inconsistent variable delay before/after part being scanned)
 '''
 
 
