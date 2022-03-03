@@ -430,6 +430,9 @@ def cycle(machine_num, sock, current_stage):
             if (reset_check[1] == True):
                 print(f'({machine_num}) Reset Detected! Setting back to Stage 0...')
                 current_stage = 0
+                print(f'({machine_num}) Flushing PLC(Result) tag data...\n')
+                write_plc_flush(plc,machine_num)
+
                 plc.write('Program:HM1450_VS' + machine_num + '.VPC1.O.Reset', False)
 
             #STAGE0 CHECK HERE
@@ -441,8 +444,8 @@ def cycle(machine_num, sock, current_stage):
                     ('Program:HM1450_VS' + machine_num + '.VPC1.I.Pass', False),
                     ('Program:HM1450_VS' + machine_num + '.VPC1.I.Fail', False)
                 )
-                print(f'({machine_num}) Flushing PLC(Result) tag data...\n')
-                write_plc_flush(plc,machine_num) # defaults all .I Phoenix tags at start of cycle
+                #print(f'({machine_num}) Flushing PLC(Result) tag data...\n')
+                #write_plc_flush(plc,machine_num) # defaults all .I Phoenix tags at start of cycle
                 plc.write('Program:HM1450_VS' + machine_num + '.VPC1.I.Ready', True)
                 
                 print(f'({machine_num}) Stage 0 : Listening for PLC(LOAD_PROGRAM) = 1\n')
@@ -555,39 +558,49 @@ def cycle(machine_num, sock, current_stage):
                 #time.sleep(.01) # FINAL SLEEP REMOVAL #10ms artificial delay for testing
                 if(results_dict['StartProgram'][1] == True):
                     plc.write('Program:HM1450_VS' + machine_num + '.VPC1.I.Ready', False)
-                    #start_timer = datetime.datetime.now() # START test timer
-                    #timer_mirrored_to_StartProgram_diff = (start_timer - timer_mirrored_to_StartProgram)
-                    #execution_time = timer_mirrored_to_StartProgram_diff.total_seconds() * 1000
-                    #print(f'({machine_num}) Data Mirrored to \'StartProgram\' high in {execution_time} ms')
                     print(f'({machine_num}) PLC(START_PROGRAM) went high! Time to trigger Keyence...\n')
 
-                    #Actual Keyence Trigger (T1) here***
                     start_timer_Trigger_to_Busy = datetime.datetime.now()
+                    plc.write('Program:HM1450_VS' + machine_num + '.VPC1.I.Busy', True) #BUSY BEFORE KEYENCE TRIGGER TEST ***
+                    time.sleep(1)
+
+                    #Actual Keyence Trigger (T1) here***
                     TriggerKeyence(sock, 'T1\r\n')
-                    print('WAITING 2 SECONDS (TEST)')
-                    time.sleep(2) #testing pause***
-                    plc.write('Program:HM1450_VS' + machine_num + '.VPC1.I.Busy', True) # Busy goes HIGH while Keyence is scanning
-                    end_timer_Trigger_to_Busy = datetime.datetime.now()
-                    diff_timer_Trigger_to_Busy = (end_timer_Trigger_to_Busy - start_timer_Trigger_to_Busy)
+                    start_timer_T1_to_EndProgram = datetime.datetime.now()
+                    #print('WAITING 2 SECONDS (TEST)')
+                    #time.sleep(2) #testing pause***
+                    
+                    #plc.write('Program:HM1450_VS' + machine_num + '.VPC1.I.Busy', True) # Busy goes HIGH while Keyence is scanning
+                    #end_timer_Trigger_to_Busy = datetime.datetime.now()
+                    diff_timer_Trigger_to_Busy = (start_timer_T1_to_EndProgram - start_timer_Trigger_to_Busy)
                     execution_time = diff_timer_Trigger_to_Busy.total_seconds() * 1000
-                    print(f'({machine_num}) TriggerKeyence to PLC(Busy) high in: {execution_time} ms')
-                    #load_to_trigger_end = datetime.datetime.now()
-                    #load_to_trigger_time_diff = (load_to_trigger_end - load_to_trigger_start)
-                    #execution_time = load_to_trigger_time_diff.total_seconds() * 1000
-                    #print(f'({machine_num}) \'LoadKeyence\' to \'TriggerKeyence\' in {execution_time} ms')
+                    print(f'({machine_num}) PLC(Busy) high to TriggerKeyence in: {execution_time} ms')
+
                     monitor_endScan(plc, machine_num, sock) # ends Keyence with EndScan
+                    end_timer_T1_to_EndScan = datetime.datetime.now()
+                    diff_timer_T1_to_EndScan = (end_timer_T1_to_EndScan - start_timer_T1_to_EndProgram)
+                    execution_time = diff_timer_T1_to_EndScan.total_seconds() * 1000
+                    print(f'({machine_num}) TriggerKeyence to PLC(EndScan) high in: {execution_time} ms')
 
                     monitor_KeyenceNotRunning(sock) # verify Keyence has processed results and written out FTP files
 
                     #BUSY HIGH TEST*
                     print(f'({machine_num}) Scan ended! PHOENIX(BUSY) is low\n')
                     plc.write('Program:HM1450_VS' + machine_num + '.VPC1.I.Busy', False)
+                    
 
                     #TODO PASS/FAIL RESULTS
                     plc.write('Program:HM1450_VS' + machine_num + '.VPC1.I.Pass', True)
                     plc.write('Program:HM1450_VS' + machine_num + '.VPC1.I.Done', True)
                     print(f'({machine_num}) PASS/FAIL/DONE data written out\n')
                     #print('PHOENIX(PASS) and PHOENIX(DONE) = 1\n')
+
+                    # Setting Chinmay's Keyence tag high
+                    keyence_msg = 'MW,#PhoenixControlContinue,1\r\n'
+                    sock.sendall(keyence_msg.encode())
+                    print(f'({machine_num}) Sent \'#PhoenixControlContinue,1\' to Keyence!')
+                    data = sock.recv(32) #obligatory Keyence read to keep buffer clear
+
                     print('Stage 1 Complete!\n')
                     current_stage += 1
                     #time.sleep(1) # FINAL SLEEP REMOVAL
@@ -597,6 +610,11 @@ def cycle(machine_num, sock, current_stage):
                 done_check = plc.read('Program:HM1450_VS' + machine_num + '.VPC1.I.Done')
                 #print(f'({machine_num}) Stage 2 : Listening to PLC(END_PROGRAM) low to reset back to Stage 0\n')
                 if(results_dict['EndProgram'][1] == True):
+                    end_timer_T1_to_EndProgram = datetime.datetime.now()
+                    diff_timer_T1_to_EndProgram = (end_timer_T1_to_EndProgram - start_timer_T1_to_EndProgram)
+                    execution_time = diff_timer_T1_to_EndProgram.total_seconds() * 1000
+                    print(f'({machine_num}) TriggerKeyence to PLC(EndProgram) high in: {execution_time} ms')
+
                     print(f'({machine_num}) PLC(END_PROGRAM) is high. Dropping PHOENIX(DONE) low\n')
                     plc.write(
                         ('Program:HM1450_VS' + machine_num + '.VPC1.I.Busy', False),
@@ -605,9 +623,11 @@ def cycle(machine_num, sock, current_stage):
                     )
                     plc.write('Program:HM1450_VS' + machine_num + '.VPC1.I.Done', False)
 
-                    print(f'({machine_num}) Artificial Pause (2.5 seconds)...Then Ready high')
-                    print('HOLD \'p\' HERE TO PAUSE BEFORE PLC(READY) GOES HIGH')
-                    time.sleep(2.5)
+                    print(f'({machine_num}) Flushing PLC(Result) tag data...\n')
+                    write_plc_flush(plc,machine_num) # defaults all .I Phoenix tags at start of cycle
+
+                    print(f'({machine_num}) Artificial Pause (1 seconds)...Then Ready high')
+                    time.sleep(1)
                     
                     check_pause() # checking if user wants to pause
 
