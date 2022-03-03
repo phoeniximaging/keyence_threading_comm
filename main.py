@@ -562,7 +562,8 @@ def cycle(machine_num, sock, current_stage):
 
                     start_timer_Trigger_to_Busy = datetime.datetime.now()
                     plc.write('Program:HM1450_VS' + machine_num + '.VPC1.I.Busy', True) #BUSY BEFORE KEYENCE TRIGGER TEST ***
-                    time.sleep(1)
+                    print('.5 SECOND ARTIFICIAL DELAY')
+                    time.sleep(.5)
 
                     #Actual Keyence Trigger (T1) here***
                     TriggerKeyence(sock, 'T1\r\n')
