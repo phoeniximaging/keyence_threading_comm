@@ -196,6 +196,7 @@ def write_plc(plc, machine_num, results):
     pass
 #END write_plc
 
+# Flushes PLC data mirroring tags (to 0)
 def write_plc_flush(plc, machine_num):
 
     plc_writer_PUN = [72, 101, 108, 108, 111, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35]
