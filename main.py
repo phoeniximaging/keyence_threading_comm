@@ -24,12 +24,11 @@ longest_time = 0
 current_stage_1 = 0
 current_stage_2 = 0
 
+# KEYENCE socket connections
 sock_1 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-#sock.connect(('192.168.1.83', 8500)) # 'sock' is the connection variable used to communicate with the Keyence
 sock_1.connect(('172.19.147.82', 8500)) # GROB address, Keyence head #1
 
 sock_2 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-#sock.connect(('192.168.1.83', 8500)) # 'sock' is the connection variable used to communicate with the Keyence
 sock_2.connect(('172.19.148.83', 8500)) # GROB address, Keyence head #2
 
 lock = threading.Lock()
@@ -292,7 +291,7 @@ def cycle(machine_num, sock, current_stage):
     is_paused = False
 
     print(f'({machine_num}) Connecting to PLC\n')
-    with LogixDriver('120.57.42.114') as plc:
+    with LogixDriver('120.123.230.39/0') as plc:
         while(True):
             check_pause() # user pause if 'p' is pressed
 
@@ -557,7 +556,7 @@ def check_pause():
 #END check_pause
 
 def heartbeat(machine_num):
-    with LogixDriver('120.57.42.114') as plc:
+    with LogixDriver('120.123.230.39/0') as plc:
         print(f'({machine_num}) Heartbeat thread connected to PLC. Writing \'HEARTBEAT\' high every 1 second')
         while(True):
             plc.write('Program:CM080CA0.PorosityInspect.CAM0' + machine_num + '.I.HEARTBEAT', True)
@@ -600,8 +599,8 @@ def keyenceResults_to_PLC(sock, plc, machine_num):
 
 #START main()
 def main():
-    global current_stage_14 #keeps track of which stage program is currently in from the timing process
-    global current_stage_15
+    global current_stage_1 #keeps track of which stage program is currently in from the timing process
+    global current_stage_2
 
     #declaring threads, does not run
     #t1 = threading.Thread(target=TriggerKeyence, args=[sock, 'T1\r\n']) #thread1, PASSing in socket connection and 'T1' keyence command
@@ -609,19 +608,19 @@ def main():
 
     # original threading tests
     
-    t1 = threading.Thread(target=cycle, args=['1', sock_1, current_stage_14])
-    t2 = threading.Thread(target=cycle, args=['2', sock_2, current_stage_15])
+    t1 = threading.Thread(target=cycle, args=['1', sock_1, current_stage_1])
+    t2 = threading.Thread(target=cycle, args=['2', sock_2, current_stage_2])
 
     t1_heartbeat = threading.Thread(target=heartbeat, args=['1'])
     t2_heartbeat = threading.Thread(target=heartbeat, args=['2'])
 
-    print("Starting Threads (14 & 15)...")
+    print("Starting Threads (1 & 2)...\n")
     t1.start()
     t2.start()
     #t1.join()
     #t2.join() # making sure threads complete before moving forward
 
-    print("Starting Heartbeat Threads (14 & 15)")
+    print("Starting Heartbeat Threads (1 & 2)\n")
     t1_heartbeat.start()
     t2_heartbeat.start()
     
