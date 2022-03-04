@@ -31,18 +31,42 @@ def TriggerKeyence(sock, item):
         sock.sendall(message.encode())
         data = sock.recv(32)
         print('received "%s"' % data)
+        keyence_value_raw = str(data).split('.')
+        keyence_value_raw = keyence_value_raw[0].split('+')
+        keyence_value = int(keyence_value_raw[1])
+        print(keyence_value)
 #END 'TriggerKeyence'
+
+def keyenceResults_to_PLC(sock):
+    #TODO read results from Keyence then pass to proper tags on PLC
+    result_messages = ['MR,#ReportDefectCount\r\n', 'MR,#ReportLargestDefectSize\r\n', 'MR,#ReportLargestDefectZoneNumber\r\n']
+    results = []
+
+    for msg in result_messages:
+        sock.sendall(msg.encode())
+        data = sock.recv(32)
+        keyence_value_raw = str(data).split('.')
+        keyence_value_raw = keyence_value_raw[0].split('+')
+        keyence_value = int(keyence_value_raw[1])
+        results.append(keyence_value)
+    print(results)
 
 #START main()
 def main():
     global current_stage #keeps track of which stage program is currently in from the timing process
 
+    keyenceResults_to_PLC(sock)
+    time.sleep(30)
+
     #test_msg = 'MW,#PhoenixControlFaceBranch,2\r\n' #test LOAD msg
     #test_msg = 'STW,0,"LOL123ABCDBLAHBLAH***-CoverFace-2-625T\r\n' #test LOAD msg
     #test_msg = 'T1\r\n'
-    test_msg = 'MR,%Trg1Ready\r\n'
+    #test_msg = 'MR,%Trg1Ready\r\n'
+    test_msg = 'MR,#ReportDefectCount\r\n'
     TriggerKeyence(sock,test_msg)
-    time.sleep(30)
+    time.sleep(1)
+
+
 
     ''' Probably won't be used for this testing program
     #BEGIN THREADING TRIGGER KEYENCE
