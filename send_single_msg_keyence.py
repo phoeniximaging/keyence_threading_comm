@@ -39,7 +39,7 @@ def TriggerKeyence(sock, item):
 
 def keyenceResults_to_PLC(sock):
     #TODO read results from Keyence then pass to proper tags on PLC
-    result_messages = ['MR,#ReportDefectCount\r\n', 'MR,#ReportLargestDefectSize\r\n', 'MR,#ReportLargestDefectZoneNumber\r\n']
+    result_messages = ['MR,#ReportDefectCount\r\n', 'MR,#ReportLargestDefectSize\r\n', 'MR,#ReportLargestDefectZoneNumber\r\n', 'MR,#ReportPass\r\n', 'MR,#ReportFail\r\n']
     results = []
 
     for msg in result_messages:
