@@ -436,7 +436,6 @@ def cycle(machine_num, sock, current_stage):
                 current_stage = 0
                 print(f'({machine_num}) Flushing PLC(Result) tag data...\n')
                 write_plc_flush(plc,machine_num)
-
                 plc.write('Program:HM1450_VS' + machine_num + '.VPC1.O.Reset', False)
 
             #STAGE0 CHECK HERE
@@ -571,8 +570,16 @@ def cycle(machine_num, sock, current_stage):
 
                 #if(start_check[1] == True):
                 if(results_dict['StartProgram'][1] == True):
+                    #Actual Keyence Trigger (T1) here***
+                    TriggerKeyence(sock, machine_num, 'T1\r\n')
+                    start_timer_T1_to_EndProgram = datetime.datetime.now()
                     plc.write('Program:HM1450_VS' + machine_num + '.VPC1.I.Ready', False)
                     print(f'({machine_num}) PLC(START_PROGRAM) went high! Time to trigger Keyence...\n')
+
+                    # ARTIFICIAL PAUSE TESTING, DIFFERENT ROBOT / FACE DIFFERENT TIME.SLEEP
+                    #if(machine_num == '14'):
+                        #print(f'(14) .5 SECOND ARTIFICIAL DELAY')
+                        #time.sleep(.5)
 
                     start_timer_Trigger_to_Busy = datetime.datetime.now()
                     plc.write('Program:HM1450_VS' + machine_num + '.VPC1.I.Busy', True) #BUSY BEFORE KEYENCE TRIGGER TEST ***
@@ -580,14 +587,6 @@ def cycle(machine_num, sock, current_stage):
                     time_diff_BusyWrite = (end_timer_BusyWrite - start_timer_Trigger_to_Busy)
                     execution_time = time_diff_BusyWrite.total_seconds() * 1000
                     print(f'({machine_num}) Writing \'Busy\' to PLC took: {execution_time} ms')
-                    # ARTIFICIAL PAUSE TESTING, DIFFERENT ROBOT / FACE DIFFERENT TIME.SLEEP
-                    #if(machine_num == '14'):
-                        #print(f'(14) .5 SECOND ARTIFICIAL DELAY')
-                        #time.sleep(.5)
-                    
-                    #Actual Keyence Trigger (T1) here***
-                    TriggerKeyence(sock, machine_num, 'T1\r\n')
-                    start_timer_T1_to_EndProgram = datetime.datetime.now()
                     #print('WAITING 2 SECONDS (TEST)')
                     #time.sleep(2) #testing pause***
                     
@@ -601,7 +600,7 @@ def cycle(machine_num, sock, current_stage):
                     end_timer_T1_to_EndScan = datetime.datetime.now()
                     diff_timer_T1_to_EndScan = (end_timer_T1_to_EndScan - start_timer_T1_to_EndProgram)
                     execution_time = diff_timer_T1_to_EndScan.total_seconds() * 1000
-                    print(f'({machine_num}) TriggerKeyence to PLC(EndScan) high in: {execution_time} ms')
+                    print(f'({machine_num}) TriggerKeyence to PLC(EndScan) high in: {execution_time} ms') # log these in .csv? include PUN and Face if applicable
 
                     monitor_KeyenceNotRunning(sock, machine_num) # verify Keyence has processed results and written out FTP files
 
@@ -648,8 +647,8 @@ def cycle(machine_num, sock, current_stage):
                     print(f'({machine_num}) Flushing PLC(Result) tag data...\n')
                     write_plc_flush(plc,machine_num) # defaults all .I Phoenix tags at start of cycle
 
-                    print(f'({machine_num}) Artificial Pause (1 seconds)...Then Ready high')
-                    time.sleep(1)
+                    #print(f'({machine_num}) Artificial Pause (1 seconds)...Then Ready high')
+                    #time.sleep(1)
                     
                     check_pause() # checking if user wants to pause
 
@@ -658,6 +657,8 @@ def cycle(machine_num, sock, current_stage):
                     
                     plc.write('Program:HM1450_VS' + machine_num + '.VPC1.I.Ready', True)
                     current_stage = 0 # cycle complete, reset to stage 0
+                    #print(f'({machine_num}) 1 sec artificial pause then reset to Stage 0')
+                    #time.sleep(1)
                 
                 #time.sleep(1) # FINAL SLEEP REMOVAL
             time.sleep(.005) #artificial loop timer
