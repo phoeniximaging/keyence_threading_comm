@@ -169,19 +169,19 @@ def TriggerKeyence(sock, machine_num, item):
     global longest_time
     global start_timer_END
 
-    #verify Keyence(Trg1READY) is high before we send a 'T1' trigger
+    #verify Keyence(Trg1Ready) is high before we send a 'T1' trigger
     with lock:
-        message = 'MR,%Trg1READY\r\n' #initial read of '%BUSY' to ensure scan is actually taking place (%BUSY == 1)
+        message = 'MR,%Trg1Ready\r\n' #initial read of '%BUSY' to ensure scan is actually taking place (%BUSY == 1)
         sock.sendall(message.encode())
         data = sock.recv(32)
-        print(f'({machine_num}) %Trg1READY = {data}')
+        print(f'({machine_num}) %Trg1Ready = {data}')
 
     # looping until '%BUSY' == 0
     while(data != b'MR,+0000000001.000000\r'):
-        print(f'Keyence(Trg1READY) was not high, \'T1\' not sent!')
+        print(f'Keyence(Trg1Ready) was not high, \'T1\' not sent!')
         # utilizing 'with' to use thread lock
         #message = 'T1\r\n'
-        message = 'MR,%Trg1READY\r\n'
+        message = 'MR,%Trg1Ready\r\n'
         with lock:
             sock.sendall(message.encode())
             data = sock.recv(32)
@@ -202,10 +202,10 @@ def TriggerKeyence(sock, machine_num, item):
 
     #am I using these right?(!)
     with lock:
-        message = 'MR,%Trg1READY\r\n' #initial read of '%BUSY' to ensure scan is actually taking place (%BUSY == 1)
+        message = 'MR,%Trg1Ready\r\n' #initial read of '%BUSY' to ensure scan is actually taking place (%BUSY == 1)
         sock.sendall(message.encode())
         data = sock.recv(32)
-        print(f'%Trg1READY = {data}')
+        print(f'%Trg1Ready = {data}')
     
     '''
     if(execution_time > longest_time):
@@ -216,18 +216,18 @@ def TriggerKeyence(sock, machine_num, item):
     #while(data != b'T1\r'):
         # utilizing 'with' to use thread lock
         #message = 'T1\r\n'
-        message = 'MR,%Trg1READY\r\n'
+        message = 'MR,%Trg1Ready\r\n'
         with lock:
             sock.sendall(message.encode())
             data = sock.recv(32)
         print(f'({machine_num})TriggerKeyence: received "%s"' % data)
         #print('Scanning...')
         time.sleep(.2) # artificial 1ms pause between Keyence reads
-    #print('Keyence %Trg1READY verified!')
+    #print('Keyence %Trg1Ready verified!')
     trigger_end_time = datetime.datetime.now() # marking when '%BUSY' is read off Keyence
     time_diff = (trigger_end_time - trigger_start_time)
     execution_time = time_diff.total_seconds() * 1000
-    print(f'\n({machine_num}) \'T1\' sent to \'%Trg1READY\' verified in {execution_time} ms\n')
+    print(f'\n({machine_num}) \'T1\' sent to \'%Trg1Ready\' verified in {execution_time} ms\n')
 #END 'TriggerKeyence'
 
 #sends specific Keyence Program (branch) info to pre-load/prepare Keyence for Trigger(T1)
@@ -240,18 +240,19 @@ def LoadKeyence(sock, item):
         data = sock.recv(32)
         print('received "%s"' % data)
 
-# sends 'TE,0' then 'TE,1' to the Keyence, RESETting to original state (READY for new 'T1')
-def ExtKeyence(sock, item, item_RESET):
-    message = item # setting 'TE,0' first
+# sends 'TE,0' then 'TE,1' to the Keyence, resetting to original state (ready for new 'T1')
+def ExtKeyence(sock):
+    #print('ExtKeyence!')
+    message = 'TE,0\r\n' # setting 'TE,0' first
     with lock:
         sock.sendall(message.encode()) # sending TE,0
-        print('\n\'TE,0\' Sent!')
+        data = sock.recv(32)
+        #print('\n\'TE,0\' Sent!\n')
 
-        message = item_RESET # setting 'TE,1' to RESET
+        message = 'TE,1\r\n' # setting 'TE,1' to reset
         sock.sendall(message.encode()) # sending, TE,1
-        print('\'TE,1\' Sent!')
-
-        #data = sock.recv(32)
+        #print('\'TE,1\' Sent!\n')
+        data = sock.recv(32)
         #print('received "%s"' % data)
 # END 'ExtKeyence'
 
@@ -557,6 +558,7 @@ def check_pause():
                 time.sleep(1)
 #END check_pause
 
+# pulses heartbeat tag every second, on independent thread(s) per machine
 def heartbeat(machine_num):
     with LogixDriver('120.123.230.39/0') as plc:
         print(f'({machine_num}) Heartbeat thread connected to PLC. Writing \'HEARTBEAT\' high every 1 second')
@@ -622,13 +624,8 @@ def KeyenceSwapCheck(sock,machine_num,program_num):
 def main():
     global current_stage_1 #keeps track of which stage program is currently in from the timing process
     global current_stage_2
-
-    #declaring threads, does not run
-    #t1 = threading.Thread(target=TriggerKeyence, args=[sock, 'T1\r\n']) #thread1, PASSing in socket connection and 'T1' keyence command
-    #t2 = threading.Thread(target=ExtKeyence, args=[sock, 'TE,0\r\n', 'TE,1\r\n']) #thread2, uses 'TE,0' and 'TE,1' to cancel while scanning and RESET to original state
-
-    # original threading tests
     
+    # Thread declaration / initialization
     t1 = threading.Thread(target=cycle, args=['1', sock_1, current_stage_1])
     t2 = threading.Thread(target=cycle, args=['2', sock_2, current_stage_2])
 
