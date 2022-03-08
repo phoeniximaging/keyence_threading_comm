@@ -300,6 +300,7 @@ def TriggerKeyence(sock, machine_num, item):
     #verify Keyence(Trg1Ready) is high before we send a 'T1' trigger
     with lock:
         message = 'MR,%Trg1Ready\r\n' #initial read of '%Busy' to ensure scan is actually taking place (%Busy == 1)
+        #message = 'MR,%Cam1Ready\r\n' # Experimental UNTESTED Keyence flag to validate if 'T1' is ready to be sent
         sock.sendall(message.encode())
         data = sock.recv(32)
         print(f'({machine_num}) %Trg1Ready = {data}')
@@ -310,6 +311,7 @@ def TriggerKeyence(sock, machine_num, item):
         # utilizing 'with' to use thread lock
         #message = 'T1\r\n'
         message = 'MR,%Trg1Ready\r\n'
+        #message = 'MR,%Cam1Ready\r\n'
         with lock:
             sock.sendall(message.encode())
             data = sock.recv(32)
@@ -331,6 +333,7 @@ def TriggerKeyence(sock, machine_num, item):
     #am I using these right?(!)
     with lock:
         message = 'MR,%Trg1Ready\r\n' #initial read of '%Busy' to ensure scan is actually taking place (%Busy == 1)
+        #message = 'MR,%Cam1Ready\r\n'
         sock.sendall(message.encode())
         data = sock.recv(32)
         print(f'%Trg1Ready = {data}')
@@ -345,6 +348,7 @@ def TriggerKeyence(sock, machine_num, item):
         # utilizing 'with' to use thread lock
         #message = 'T1\r\n'
         message = 'MR,%Trg1Ready\r\n'
+        #message = 'MR,%Cam1Ready\r\n'
         with lock:
             sock.sendall(message.encode())
             data = sock.recv(32)

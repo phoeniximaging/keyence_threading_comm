@@ -55,14 +55,15 @@ def keyenceResults_to_PLC(sock):
 def main():
     global current_stage #keeps track of which stage program is currently in from the timing process
 
-    keyenceResults_to_PLC(sock)
-    time.sleep(30)
+    #keyenceResults_to_PLC(sock)
+    #time.sleep(30)
 
     #test_msg = 'MW,#PhoenixControlFaceBranch,2\r\n' #test LOAD msg
     #test_msg = 'STW,0,"LOL123ABCDBLAHBLAH***-CoverFace-2-625T\r\n' #test LOAD msg
     #test_msg = 'T1\r\n'
     #test_msg = 'MR,%Trg1Ready\r\n'
-    test_msg = 'MR,#ReportDefectCount\r\n'
+    #test_msg = 'MR,#ReportDefectCount\r\n'
+    test_msg = 'MR,%Cam1Ready\r\n'
     TriggerKeyence(sock,test_msg)
     time.sleep(1)
 
