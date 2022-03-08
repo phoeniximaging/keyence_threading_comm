@@ -1,3 +1,4 @@
+from platform import machine
 import threading
 import datetime, time
 import socket
@@ -288,6 +289,7 @@ def monitor_KeyenceNotRunning(sock, machine_num):
 # primary function, to be used by 14/15 threads
 def cycle(machine_num, sock, current_stage):
     global start_timer #testing
+    program_swapped = False # latch for switching from ring seal to other Keyence program
     is_paused = False
 
     print(f'({machine_num}) Connecting to PLC\n')
@@ -358,19 +360,17 @@ def cycle(machine_num, sock, current_stage):
                 keyence_string = '' #building out external Keyence string for scan file naming
                 if(machine_num == '1'):
                     if(results_dict['PART_PROGRAM'][1] == 1):
-                        keyence_string = 'Ring_Seal_Surface_Section_1'
+                        keyence_string = 'Ring_Seal_Surface'
+                        KeyenceSwapCheck(sock,machine_num,'1') # ensures Keyence has the correct program loaded
                     elif(results_dict['PART_PROGRAM'][1] == 2):
-                        keyence_string = 'Ring_Seal_Surface_Section_2'
-                    elif(results_dict['PART_PROGRAM'][1] == 3):
-                        keyence_string = 'Ring_Seal_Surface_Section_3'
-                    elif(results_dict['PART_PROGRAM'][1] == 4):
                         keyence_string = 'Case_Mounting_Face_Section_1'
-                    elif(results_dict['PART_PROGRAM'][1] == 5):
+                        KeyenceSwapCheck(sock,machine_num,'2')
+                    elif(results_dict['PART_PROGRAM'][1] == 3):
                         keyence_string = 'Case_Mounting_Face_Section_2'
-                    elif(results_dict['PART_PROGRAM'][1] == 6):
+                        KeyenceSwapCheck(sock,machine_num,'2') # redundant?
+                    elif(results_dict['PART_PROGRAM'][1] == 4):
                         keyence_string = 'Case_Mounting_Face_Section_3'
-                    elif(results_dict['PART_PROGRAM'][1] == 12):
-                        keyence_string = 'FrontFace-45T3'
+                        KeyenceSwapCheck(sock,machine_num,'2') # redundant?
                 elif(machine_num == '2'):
                     if(results_dict['PART_PROGRAM'][1] == 1):
                         keyence_string = 'Case_Rear_Extension_1_Sealing_Face_Section_1'
@@ -456,7 +456,9 @@ def cycle(machine_num, sock, current_stage):
                     execution_time = diff_timer_Trigger_to_BUSY.total_seconds() * 1000
                     print(f'({machine_num}) PLC(BUSY) high to TriggerKeyence in: {execution_time} ms')
 
-                    monitor_END_SCAN(plc, machine_num, sock) # ends Keyence with END_SCAN
+                    if(results_dict['PART_PROGRAM'][1] != 1):
+                        monitor_END_SCAN(plc, machine_num, sock) # ends Keyence with END_SCAN
+
                     end_timer_T1_to_END_SCAN = datetime.datetime.now()
                     diff_timer_T1_to_END_SCAN = (end_timer_T1_to_END_SCAN - start_timer_T1_to_END_PROGRAM)
                     execution_time = diff_timer_T1_to_END_SCAN.total_seconds() * 1000
@@ -593,7 +595,26 @@ def keyenceResults_to_PLC(sock, plc, machine_num):
 
 #END keyenceResults_to_PLC
 
+# used to ensure the correct Keyence program is loaded for the part being processed (only applicable for machine#1 @ Grob)
+def KeyenceSwapCheck(sock,machine_num,program_num):
+    print(f'({machine_num}) Validating Keyence has proper program loaded...')
+    msg = 'PR\r\n'
 
+    with lock:
+        sock.sendall(msg.encode())
+        data = sock.recv(32)
+        #print('received "%s"' % data)
+    
+        keyence_value_raw = str(data).split(',')
+        keyence_value_raw = str(keyence_value_raw[2]).split('\\')
+        print(f'({machine_num}) Keyence currently has program : {keyence_value_raw[0][3]} loaded')
+        keyence_value = keyence_value_raw[0][3] # current program number loaded on Keyence
+    
+    if(keyence_value != program_num):
+        print(f'({machine_num}) Swapping Keyence program to: {program_num}')
+        LoadKeyence(sock,'PW,1,' + program_num + '\r\n') # ring seal is specific program
+    pass
+#END KeyenceSwapCheck
 
 ### AFTER 'THE PASTE'
 

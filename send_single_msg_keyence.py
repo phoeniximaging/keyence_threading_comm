@@ -31,6 +31,11 @@ def TriggerKeyence(sock, item):
         sock.sendall(message.encode())
         data = sock.recv(32)
         print('received "%s"' % data)
+    
+        keyence_value_raw = str(data).split(',')
+        keyence_value_raw = str(keyence_value_raw[2]).split('\\')
+        print(keyence_value_raw[0][3])
+
 #END 'TriggerKeyence'
 
 #START main()
@@ -39,7 +44,8 @@ def main():
 
     #test_msg = 'MW,#PhoenixControlFaceBranch,2\r\n' #test LOAD msg
     #test_msg = 'STW,0,"LOL123ABCDBLAHBLAH***-CoverFace-2-625T\r\n' #test LOAD msg
-    test_msg = 'T1\r\n'
+    #test_msg = 'T1\r\n'
+    test_msg = 'PR\r\n'
     TriggerKeyence(sock,test_msg)
     time.sleep(30)
 
