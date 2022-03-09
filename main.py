@@ -146,18 +146,16 @@ def write_plc_flush(plc, machine_num):
     plc_writer_PUN = [72, 101, 108, 108, 111, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35]
 
     plc.write(
-    ('Program:CM080CA0.PorosityInspect.CAM0' + machine_num + '.I.PART_TYPE', 0),
-    ('Program:CM080CA0.PorosityInspect.CAM0' + machine_num + '.I.PART_PROGRAM', 0),
-    #('Program:CM080CA0.PorosityInspect.CAM0' + machine_num + '.I.SCAN_NUMBER', 0),
-    ('Program:CM080CA0.PorosityInspect.CAM0' + machine_num + '.I.PUN{64}', plc_writer_PUN),
-    ('Program:CM080CA0.PorosityInspect.CAM0' + machine_num + '.I.MODULE', 0),
-    #('Program:CM080CA0.PorosityInspect.CAM0' + machine_num + '.I.PLANTCODE', 0),
-    ('Program:CM080CA0.PorosityInspect.CAM0' + machine_num + '.I.TIMESTAMP_MONTH', 0),
-    ('Program:CM080CA0.PorosityInspect.CAM0' + machine_num + '.I.TIMESTAMP_DAY', 0),
-    ('Program:CM080CA0.PorosityInspect.CAM0' + machine_num + '.I.TIMESTAMP_YEAR', 0),
-    ('Program:CM080CA0.PorosityInspect.CAM0' + machine_num + '.I.TIMESTAMP_HOUR', 0),
-    ('Program:CM080CA0.PorosityInspect.CAM0' + machine_num + '.I.TIMESTAMP_MINUTE', 0),
-    ('Program:CM080CA0.PorosityInspect.CAM0' + machine_num + '.I.TIMESTAMP_SECOND', 0)
+        ('Program:CM080CA01.PorosityInspect.CAM0' + machine_num + '.I.PART_TYPE', 0),
+        ('Program:CM080CA01.PorosityInspect.CAM0' + machine_num + '.I.PART_PROGRAM', 0),
+        ('Program:CM080CA01.PorosityInspect.CAM0' + machine_num + '.I.PUN{64}', plc_writer_PUN),
+        ('Program:CM080CA01.PorosityInspect.CAM0' + machine_num + '.I.MODULE', 0),
+        ('Program:CM080CA01.PorosityInspect.CAM0' + machine_num + '.I.TIMESTAMP_MONTH', 0),
+        ('Program:CM080CA01.PorosityInspect.CAM0' + machine_num + '.I.TIMESTAMP_DAY', 0),
+        ('Program:CM080CA01.PorosityInspect.CAM0' + machine_num + '.I.TIMESTAMP_YEAR', 0),
+        ('Program:CM080CA01.PorosityInspect.CAM0' + machine_num + '.I.TIMESTAMP_HOUR', 0),
+        ('Program:CM080CA01.PorosityInspect.CAM0' + machine_num + '.I.TIMESTAMP_MINUTE', 0),
+        ('Program:CM080CA01.PorosityInspect.CAM0' + machine_num + '.I.TIMESTAMP_SECOND', 0)
     )
 # end write_plc_flush
 
@@ -261,10 +259,16 @@ def ExtKeyence(sock):
 # reading PLC(END_SCAN) until it goes high to interrupt current Keyence scan
 def monitor_END_SCAN(plc, machine_num, sock):
     print(f'({machine_num}) Listening for PLC(END_SCAN) high\n')
-    current = plc.read('Program:CM080CA0.PorosityInspect.CAM0' + machine_num + '.O.END_SCAN')
+    current = plc.read(('Program:CM080CA01.PorosityInspect.CAM0' + machine_num + '.O.END_SCAN'),
+        ('Program:CM080CA01.PorosityInspect.CAM0' + machine_num + '.O.RESET')
+    )
 
-    while(current[1] != True):
-        current = plc.read('Program:CM080CA0.PorosityInspect.CAM0' + machine_num + '.O.END_SCAN')
+    # checking END_SCAN and RESET
+    while(current[0][1] != True or current[1][1] != True):
+        current = plc.read(('Program:CM080CA01.PorosityInspect.CAM0' + machine_num + '.O.END_SCAN'),
+            ('Program:CM080CA01.PorosityInspect.CAM0' + machine_num + '.O.RESET')
+        )
+        print(f'{machine_num} END_SCAN : {current[0][1]} | RESET : {current[1][1]}')
         time.sleep(.005)
     print(f'({machine_num}) PLC(END_SCAN) went high!\n')
 
@@ -303,39 +307,69 @@ def cycle(machine_num, sock, current_stage):
             #print(results_dict['LOAD_PROGRAM'][1]) #how to print the value of one specific tag
 
             # PLC read and check to RESET system off PLC(RESET) tag
-            RESET_check = plc.read('Program:CM080CA0.PorosityInspect.CAM0' + machine_num + '.O.RESET')
+            RESET_check = plc.read('Program:CM080CA01.PorosityInspect.CAM0' + machine_num + '.O.RESET')
             if (RESET_check[1] == True):
-                print(f'({machine_num}) RESET Detected! Setting back to Stage 0...')
+                RESET_check = plc.read('Program:CM080CA01.PorosityInspect.CAM0' + machine_num + '.O.RESET')
+                print(f'({machine_num}) (Pre-Load) RESET Detected! Setting back to Stage 0...')
                 current_stage = 0
                 print(f'({machine_num}) Flushing PLC(Result) tag data...\n')
                 write_plc_flush(plc,machine_num)
+                #plc.write('Program:CM080CA01.PorosityInspect.CAM0' + machine_num + '.O.RESET_ACK', True)
+                plc.write('Program:CM080CA01.PorosityInspect.CAM0' + machine_num + '.I.READY', True)
 
-                plc.write('Program:CM080CA0.PorosityInspect.CAM0' + machine_num + '.O.RESET', False)
+                while(RESET_check[1] != False):
+                    print(f'({machine_num}) (Pre-Load) Waiting on PLC(RESET) low...')
+                    RESET_check = plc.read('Program:CM080CA01.PorosityInspect.CAM0' + machine_num + '.O.RESET')
+                    time.sleep(.005)
+
+                #print(f'({machine_num}) Reset Complete! Phoenix(READY) going high')
+                #plc.write('Program:CM080CA01.PorosityInspect.CAM0' + machine_num + '.I.READY', True)
 
             #STAGE0 CHECK HERE
             if(current_stage == 0):
                 print(f'({machine_num}) Setting Boolean Flags to Stage 0\n')
+                
                 plc.write(
-                    ('Program:CM080CA0.PorosityInspect.CAM0' + machine_num + '.I.BUSY', False),
-                    ('Program:CM080CA0.PorosityInspect.CAM0' + machine_num + '.I.DONE', False),
-                    ('Program:CM080CA0.PorosityInspect.CAM0' + machine_num + '.I.PASS', False),
-                    ('Program:CM080CA0.PorosityInspect.CAM0' + machine_num + '.I.FAIL', False)
+                    ('Program:CM080CA01.PorosityInspect.CAM0' + machine_num + '.I.BUSY', False),
+                    ('Program:CM080CA01.PorosityInspect.CAM0' + machine_num + '.I.DONE', False),
+                    ('Program:CM080CA01.PorosityInspect.CAM0' + machine_num + '.I.PASS', False),
+                    ('Program:CM080CA01.PorosityInspect.CAM0' + machine_num + '.I.FAIL', False)
                 )
                 #print(f'({machine_num}) Flushing PLC(Result) tag data...\n')
                 #write_plc_flush(plc,machine_num) # defaults all .I Phoenix tags at start of cycle
-                plc.write('Program:CM080CA0.PorosityInspect.CAM0' + machine_num + '.I.READY', True)
+                plc.write('Program:CM080CA01.PorosityInspect.CAM0' + machine_num + '.I.READY', True)
+
+                print(f'({machine_num}) Flushing PLC data (Stage 0)')
+                write_plc_flush(plc,machine_num)
                 
                 print(f'({machine_num}) Stage 0 : Listening for PLC(LOAD_PROGRAM) = 1\n')
                 #reading PLC until LOAD_PROGRAM goes high
                 while(results_dict['LOAD_PROGRAM'][1] != True):
                     check_pause() # user pause if 'p' is pressed
                     results_dict = read_plc_dict(plc, machine_num) # continuous PLC read
+                    if (results_dict['RESET'][1] == True):
+                        RESET_check = plc.read('Program:CM080CA01.PorosityInspect.CAM0' + machine_num + '.O.RESET')
+                        print(f'({machine_num}) (During Load) RESET Detected! Setting back to Stage 0...')
+                        current_stage = 0
+                        print(f'({machine_num}) Flushing PLC(Result) tag data...\n')
+                        write_plc_flush(plc,machine_num)
+                        #plc.write('Program:CM080CA01.PorosityInspect.CAM0' + machine_num + '.O.RESET_ACK', True)
+                        plc.write('Program:CM080CA01.PorosityInspect.CAM0' + machine_num + '.I.READY', True)
+                        print(f'({machine_num}) (Loading) Waiting on PLC(RESET) low...')
+
+                        while(RESET_check[1] != False):
+                            RESET_check = plc.read('Program:CM080CA01.PorosityInspect.CAM0' + machine_num + '.O.RESET')
+                            time.sleep(.005)
+
+                        #print(f'({machine_num}) Reset Complete! Phoenix(READY) going high')
+                        #plc.write('Program:CM080CA01.PorosityInspect.CAM0' + machine_num + '.I.READY', True)
+                        
                     #print(csv_results)
                     time.sleep(.005) # 5ms pause between reads
 
                 #print('PLC(LOAD_PROGRAM) went high!\n')
                 # Once PLC(LOAD_PROGRAM) goes high, mirror data and set Phoenix(READY) high, signifies end of "loading" process
-                plc.write('Program:CM080CA0.PorosityInspect.CAM0' + machine_num + '.I.READY', False)
+                plc.write('Program:CM080CA01.PorosityInspect.CAM0' + machine_num + '.I.READY', False)
                 print(f'({machine_num}) Dropping Phoenix(READY) low.\n')
 
                 ''' PART_PROGRAM mapping
@@ -396,7 +430,7 @@ def cycle(machine_num, sock, current_stage):
 
                 #load_to_trigger_start = datetime.datetime.now()
                 #TODO Send branch data to load Keyence for scan
-                print(f'Loading: {keyence_string}')
+                print(f'({machine_num}) Loading: {keyence_string}')
                 LoadKeyence(sock,'MW,#PhoenixControlFaceBranch,' + str(results_dict['PART_PROGRAM'][1]) + '\r\n') #Keyence loading message, uses PART_PROGRAM from PLC to load specific branch
                 LoadKeyence(sock,'STW,0,"' + keyence_string + '\r\n') # PASSing external string to Keyence for file naming (?)
                 print(f'({machine_num}) Keyence Loaded!\n')
@@ -412,7 +446,7 @@ def cycle(machine_num, sock, current_stage):
                 #csv_results['DATA'] = csv_results_plc['DATA']
                 #time.sleep(1) # FINAL SLEEP REMOVAL #artificial pause to see step happening in testing
                 print(f'({machine_num}) Data Mirrored, Setting \'READY\' high\n')
-                plc.write('Program:CM080CA0.PorosityInspect.CAM0' + machine_num + '.I.READY', True)
+                plc.write('Program:CM080CA01.PorosityInspect.CAM0' + machine_num + '.I.READY', True)
                 #time.sleep(3) # FINAL SLEEP REMOVAL
                 current_stage += 1 #incrementing out of STAGE0
                 print(f'({machine_num}) Stage 1!\nListening for PLC(START_PROGRAM) = 1\n')
@@ -423,19 +457,19 @@ def cycle(machine_num, sock, current_stage):
                 #time.sleep(.01) # FINAL SLEEP REMOVAL #10ms artificial delay for testing
 
                 '''
-                start_check = plc.read('Program:CM080CA0.PorosityInspect.CAM0' + machine_num + '.O.START_PROGRAM')
+                start_check = plc.read('Program:CM080CA01.PorosityInspect.CAM0' + machine_num + '.O.START_PROGRAM')
                 while(start_check[1] == False):
-                    start_check = plc.read('Program:CM080CA0.PorosityInspect.CAM0' + machine_num + '.O.START_PROGRAM')
+                    start_check = plc.read('Program:CM080CA01.PorosityInspect.CAM0' + machine_num + '.O.START_PROGRAM')
                     time.sleep(.005)
                 '''
 
                 #if(start_check[1] == True):
                 if(results_dict['START_PROGRAM'][1] == True):
-                    plc.write('Program:CM080CA0.PorosityInspect.CAM0' + machine_num + '.I.READY', False)
+                    plc.write('Program:CM080CA01.PorosityInspect.CAM0' + machine_num + '.I.READY', False)
                     print(f'({machine_num}) PLC(START_PROGRAM) went high! Time to trigger Keyence...\n')
 
                     start_timer_Trigger_to_BUSY = datetime.datetime.now()
-                    plc.write('Program:CM080CA0.PorosityInspect.CAM0' + machine_num + '.I.BUSY', True) #BUSY BEFORE KEYENCE TRIGGER TEST ***
+                    plc.write('Program:CM080CA01.PorosityInspect.CAM0' + machine_num + '.I.BUSY', True) #BUSY BEFORE KEYENCE TRIGGER TEST ***
                     end_timer_BUSYWrite = datetime.datetime.now()
                     time_diff_BUSYWrite = (end_timer_BUSYWrite - start_timer_Trigger_to_BUSY)
                     execution_time = time_diff_BUSYWrite.total_seconds() * 1000
@@ -451,13 +485,14 @@ def cycle(machine_num, sock, current_stage):
                     #print('WAITING 2 SECONDS (TEST)')
                     #time.sleep(2) #testing pause***
                     
-                    #plc.write('Program:CM080CA0.PorosityInspect.CAM0' + machine_num + '.I.BUSY', True) # BUSY goes HIGH while Keyence is scanning
+                    #plc.write('Program:CM080CA01.PorosityInspect.CAM0' + machine_num + '.I.BUSY', True) # BUSY goes HIGH while Keyence is scanning
                     #end_timer_Trigger_to_BUSY = datetime.datetime.now()
                     diff_timer_Trigger_to_BUSY = (start_timer_T1_to_END_PROGRAM - start_timer_Trigger_to_BUSY)
                     execution_time = diff_timer_Trigger_to_BUSY.total_seconds() * 1000
                     print(f'({machine_num}) PLC(BUSY) high to TriggerKeyence in: {execution_time} ms')
 
                     if(results_dict['PART_PROGRAM'][1] != 1):
+                        print(f'({machine_num}) PART_PROGRAM : ' + str(results_dict['PART_PROGRAM'][1]))
                         monitor_END_SCAN(plc, machine_num, sock) # ends Keyence with END_SCAN
 
                     end_timer_T1_to_END_SCAN = datetime.datetime.now()
@@ -469,13 +504,13 @@ def cycle(machine_num, sock, current_stage):
 
                     #BUSY HIGH TEST*
                     print(f'({machine_num}) Scan ended! PHOENIX(BUSY) is low\n')
-                    plc.write('Program:CM080CA0.PorosityInspect.CAM0' + machine_num + '.I.BUSY', False)
+                    plc.write('Program:CM080CA01.PorosityInspect.CAM0' + machine_num + '.I.BUSY', False)
                     
 
                     #TODO PASS/FAIL RESULTS
                     keyenceResults_to_PLC(sock, plc, machine_num)
-                    #plc.write('Program:CM080CA0.PorosityInspect.CAM0' + machine_num + '.I.PASS', True)
-                    #plc.write('Program:CM080CA0.PorosityInspect.CAM0' + machine_num + '.I.DONE', True)
+                    #plc.write('Program:CM080CA01.PorosityInspect.CAM0' + machine_num + '.I.PASS', True)
+                    #plc.write('Program:CM080CA01.PorosityInspect.CAM0' + machine_num + '.I.DONE', True)
                     #print(f'({machine_num}) PASS/FAIL/DONE data written out\n')
                     #print('PHOENIX(PASS) and PHOENIX(DONE) = 1\n')
 
@@ -491,7 +526,7 @@ def cycle(machine_num, sock, current_stage):
                 
             #Final Stage, RESET to Stage 0 once PLC(END_PROGRAM) and PHOENIX(DONE) have been set low
             elif(current_stage == 2):
-                DONE_check = plc.read('Program:CM080CA0.PorosityInspect.CAM0' + machine_num + '.I.DONE')
+                DONE_check = plc.read('Program:CM080CA01.PorosityInspect.CAM0' + machine_num + '.I.DONE')
                 #print(f'({machine_num}) Stage 2 : Listening to PLC(END_PROGRAM) low to RESET back to Stage 0\n')
                 if(results_dict['END_PROGRAM'][1] == True):
                     end_timer_T1_to_END_PROGRAM = datetime.datetime.now()
@@ -501,11 +536,11 @@ def cycle(machine_num, sock, current_stage):
 
                     print(f'({machine_num}) PLC(END_PROGRAM) is high. Dropping PHOENIX(DONE) low\n')
                     plc.write(
-                        ('Program:CM080CA0.PorosityInspect.CAM0' + machine_num + '.I.BUSY', False),
-                        ('Program:CM080CA0.PorosityInspect.CAM0' + machine_num + '.I.PASS', False),
-                        ('Program:CM080CA0.PorosityInspect.CAM0' + machine_num + '.I.FAIL', False)
+                        ('Program:CM080CA01.PorosityInspect.CAM0' + machine_num + '.I.BUSY', False),
+                        ('Program:CM080CA01.PorosityInspect.CAM0' + machine_num + '.I.PASS', False),
+                        ('Program:CM080CA01.PorosityInspect.CAM0' + machine_num + '.I.FAIL', False)
                     )
-                    plc.write('Program:CM080CA0.PorosityInspect.CAM0' + machine_num + '.I.DONE', False)
+                    plc.write('Program:CM080CA01.PorosityInspect.CAM0' + machine_num + '.I.DONE', False)
 
                     print(f'({machine_num}) Flushing PLC(Result) tag data...\n')
                     write_plc_flush(plc,machine_num) # defaults all .I Phoenix tags at start of cycle
@@ -518,7 +553,7 @@ def cycle(machine_num, sock, current_stage):
                 if(results_dict['END_PROGRAM'][1] == False and DONE_check[1] == False):
                     print(f'({machine_num}) PLC(END_PROGRAM) is low. RESETting PHOENIX to Stage 0\n')
                     
-                    plc.write('Program:CM080CA0.PorosityInspect.CAM0' + machine_num + '.I.READY', True)
+                    plc.write('Program:CM080CA01.PorosityInspect.CAM0' + machine_num + '.I.READY', True)
                     current_stage = 0 # cycle complete, RESET to stage 0
                 
                 #time.sleep(1) # FINAL SLEEP REMOVAL
@@ -563,7 +598,7 @@ def heartbeat(machine_num):
     with LogixDriver('120.123.230.39/0') as plc:
         print(f'({machine_num}) Heartbeat thread connected to PLC. Writing \'HEARTBEAT\' high every 1 second')
         while(True):
-            plc.write('Program:CM080CA0.PorosityInspect.CAM0' + machine_num + '.I.HEARTBEAT', True)
+            plc.write('Program:CM080CA01.PorosityInspect.CAM0' + machine_num + '.I.HEARTBEAT', True)
             #print(f'({machine_num}) Heartbeat written HIGH')
             time.sleep(1)
 #END heartbeat
@@ -571,7 +606,7 @@ def heartbeat(machine_num):
 # read defect information from the Keyence, then PASSes that as well as PASS,FAIL,DONE to PLC
 def keyenceResults_to_PLC(sock, plc, machine_num):
     #TODO read results from Keyence then PASS to proper tags on PLC
-    result_messages = ['MR,#ReportDefectCount\r\n', 'MR,#ReportLargestDefectSize\r\n', 'MR,#ReportLargestDefectZoneNumber\r\n', 'MR,#ReportPASS\r\n', 'MR,#ReportFAIL\r\n']
+    result_messages = ['MR,#ReportDefectCount\r\n', 'MR,#ReportLargestDefectSize\r\n', 'MR,#ReportLargestDefectZoneNumber\r\n', 'MR,#ReportPass\r\n', 'MR,#ReportFail\r\n']
     results = []
 
     # sending result messages to Keyence, then cleaning results to 'human-readable' list
@@ -585,14 +620,14 @@ def keyenceResults_to_PLC(sock, plc, machine_num):
 
     # writing normalized Keyence results to proper PLC tags
     plc.write(
-        ('Program:CM080CA0.PorosityInspect.CAM0' + machine_num + '.I.Defect_Number', results[0]),
-        ('Program:CM080CA0.PorosityInspect.CAM0' + machine_num + '.I.Defect_Size', results[1]),
-        ('Program:CM080CA0.PorosityInspect.CAM0' + machine_num + '.I.DefectZone', results[2]),
-        ('Program:CM080CA0.PorosityInspect.CAM0' + machine_num + '.I.PASS', results[3]),
-        ('Program:CM080CA0.PorosityInspect.CAM0' + machine_num + '.I.FAIL', results[4]),
+        ('Program:CM080CA01.PorosityInspect.CAM0' + machine_num + '.I.Defect_Number', results[0]),
+        ('Program:CM080CA01.PorosityInspect.CAM0' + machine_num + '.I.Defect_Size', results[1]),
+        ('Program:CM080CA01.PorosityInspect.CAM0' + machine_num + '.I.DefectZone', results[2]),
+        ('Program:CM080CA01.PorosityInspect.CAM0' + machine_num + '.I.PASS', results[3]),
+        ('Program:CM080CA01.PorosityInspect.CAM0' + machine_num + '.I.FAIL', results[4]),
     )
     print(f'({machine_num}) PASS = {results[3]} ; FAIL = {results[4]}')
-    plc.write('Program:CM080CA0.PorosityInspect.CAM0' + machine_num + '.I.DONE', True)
+    plc.write('Program:CM080CA01.PorosityInspect.CAM0' + machine_num + '.I.DONE', True)
     print(f'({machine_num}) Keyence Results written to PLC!')
 
 #END keyenceResults_to_PLC

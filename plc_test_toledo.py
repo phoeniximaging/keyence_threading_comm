@@ -4,6 +4,12 @@ import time
 
 with LogixDriver("120.123.230.39/0") as plc:
             plc.open()
+
+            plc.write('Program:CM080CA01.PorosityInspect.CAM01.I.PART_TYPE', 0)
+            print('Wrote TRUE to CAM01(FAULTED)')
+
+            time.sleep(100)
+
             '''
             print("PLC: ")
             print(plc)

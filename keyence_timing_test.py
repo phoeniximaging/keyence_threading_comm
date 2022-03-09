@@ -159,7 +159,4 @@ def main():
 
 #implicit 'main()' declaration
 if __name__ == '__main__':
-    for x in range(20):
-        print(f'Main Loop {x}')
-        main()
-        #time.sleep(3) # time between cycles to eyeball if multiple scans are actually taking place
+    main()
