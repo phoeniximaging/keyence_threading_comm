@@ -11,13 +11,16 @@ This testing program is used to send and recv a single message from one Keyence 
 trigger_count = 0
 slow_count = 0
 longest_time = 0
+shortest_time = 12345
 current_stage = 0
 
 # Keyence socket connections
-sock_14 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-sock_14.connect(('172.19.145.80', 8500))
-sock_15 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-sock_15.connect(('172.19.146.81', 8500))
+sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+sock.connect(('192.168.1.83', 8500)) # 'sock' is the connection variable used to communicate with the Keyence
+#sock_14 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+#sock_14.connect(('172.19.145.80', 8500))
+#sock_15 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+#sock_15.connect(('172.19.146.81', 8500))
 
 lock = threading.Lock()
 
@@ -110,6 +113,7 @@ def ExtKeyence(sock):
 def main():
     global current_stage #keeps track of which stage program is currently in from the timing process
     global longest_time
+    global shortest_time
 
     #test_msg = 'MW,#PhoenixControlFaceBranch,2\r\n' #test LOAD msg
     #test_msg = 'STW,0,"LOL123ABCDBLAHBLAH***-CoverFace-2-625T\r\n' #test LOAD msg
@@ -117,18 +121,21 @@ def main():
     #test_msg = 'PR\r\n'
     while(True):
         start_timer = datetime.datetime.now()
-        TriggerKeyence(sock_15,'123',test_msg)
+        TriggerKeyence(sock,'123',test_msg)
         end_timer = datetime.datetime.now()
         time_diff = (end_timer - start_timer)
         execution_time = time_diff.total_seconds() * 1000
         print(f'Execution time: {round(execution_time,2)} ms\n')
         if(execution_time > longest_time):
             longest_time = execution_time
+        if(execution_time < shortest_time):
+            shortest_time = execution_time
 
-        print(f'Longest Execution Time: {longest_time}\n')
+        print(f'Shortest Execution Time: {round(shortest_time,2)} ms')
+        print(f'Longest Execution Time: {round(longest_time,2)} ms\n')
         time.sleep(7) # artificial pause to pretend PLC sends 'EndScan' after ~7 seconds
 
-        ExtKeyence(sock_15)
+        ExtKeyence(sock)
         time.sleep(1)
 
 #implicit 'main()' declaration

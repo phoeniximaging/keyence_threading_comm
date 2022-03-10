@@ -297,20 +297,20 @@ def TriggerKeyence(sock, machine_num, item):
     global longest_time
     global start_timer_END
 
-    #verify Keyence(Trg1Ready) is high before we send a 'T1' trigger
+    #verify Keyence(Busy) is high before we send a 'T1' trigger
     with lock:
-        message = 'MR,%Trg1Ready\r\n' #initial read of '%Busy' to ensure scan is actually taking place (%Busy == 1)
+        message = 'MR,%Busy\r\n' #initial read of '%Busy' to ensure scan is actually taking place (%Busy == 1)
         #message = 'MR,%Cam1Ready\r\n' # Experimental UNTESTED Keyence flag to validate if 'T1' is ready to be sent
         sock.sendall(message.encode())
         data = sock.recv(32)
-        print(f'({machine_num}) %Trg1Ready = {data}')
+        print(f'({machine_num}) %Busy = {data}')
 
     # looping until '%Busy' == 0
-    while(data != b'MR,+0000000001.000000\r'):
-        print(f'Keyence(Trg1Ready) was not high, \'T1\' not sent!')
+    while(data != b'MR,+0000000000.000000\r'):
+        print(f'Keyence(Busy) was not high, \'T1\' not sent!')
         # utilizing 'with' to use thread lock
         #message = 'T1\r\n'
-        message = 'MR,%Trg1Ready\r\n'
+        message = 'MR,%Busy\r\n'
         #message = 'MR,%Cam1Ready\r\n'
         with lock:
             sock.sendall(message.encode())
@@ -330,24 +330,21 @@ def TriggerKeyence(sock, machine_num, item):
     #execution_time = time_diff.total_seconds() * 1000
     #print(f'PLC(Start) read to Keyence(T1) read in : {execution_time} ms')
 
+    
     #am I using these right?(!)
     with lock:
-        message = 'MR,%Trg1Ready\r\n' #initial read of '%Busy' to ensure scan is actually taking place (%Busy == 1)
+        message = 'MR,%Busy\r\n' #initial read of '%Busy' to ensure scan is actually taking place (%Busy == 1)
         #message = 'MR,%Cam1Ready\r\n'
         sock.sendall(message.encode())
         data = sock.recv(32)
-        print(f'%Trg1Ready = {data}')
+        print(f'%Busy = {data}')
     
-    '''
-    if(execution_time > longest_time):
-        longest_time = execution_time
-    '''
     # looping until '%Busy' == 0
-    while(data != b'MR,+0000000000.000000\r'):
+    while(data != b'MR,+0000000001.000000\r'):
     #while(data != b'T1\r'):
         # utilizing 'with' to use thread lock
         #message = 'T1\r\n'
-        message = 'MR,%Trg1Ready\r\n'
+        message = 'MR,%Busy\r\n'
         #message = 'MR,%Cam1Ready\r\n'
         with lock:
             sock.sendall(message.encode())
@@ -355,11 +352,12 @@ def TriggerKeyence(sock, machine_num, item):
         print(f'({machine_num})TriggerKeyence: received "%s"' % data)
         #print('Scanning...')
         time.sleep(.2) # artificial 1ms pause between Keyence reads
-    #print('Keyence %Trg1Ready verified!')
+    #print('Keyence %Busy verified!')
     trigger_end_time = datetime.datetime.now() # marking when '%Busy' is read off Keyence
     time_diff = (trigger_end_time - trigger_start_time)
     execution_time = time_diff.total_seconds() * 1000
-    print(f'\n({machine_num}) \'T1\' sent to \'%Trg1Ready\' verified in {execution_time} ms\n')
+    print(f'\n({machine_num}) \'T1\' sent to \'%Busy\' verified in {execution_time} ms\n')
+    
 #END 'TriggerKeyence'
 
 #sends specific Keyence Program (branch) info to pre-load/prepare Keyence for Trigger(T1)
@@ -405,6 +403,17 @@ def monitor_endScan(plc, machine_num, sock):
 
 # function to monitor the Keyence tag 'KeyenceNotRunning', when True (+00001.00000) we know Keyence has completed result processing and FTP file write
 def monitor_KeyenceNotRunning(sock, machine_num):
+    ''' From Testing w/o TE,0 / TE,1
+    msg = 'MR,%Busy\r\n'
+    sock.sendall(msg.encode())
+    data = sock.recv(32)
+    while(data != b'MR,+0000000000.000000\r'):
+        sock.sendall(msg.encode())
+        data = sock.recv(32)
+        #print(f'({machine_num}) Keyence(Busy) = {data}')
+        time.sleep(.005)
+    '''
+
     #print(f'({machine_num}) Keyence Processing...')
     #msg = 'MR,#KeyenceNotRunning\r\n'
     msg = 'MR,#KeyenceNotRunning\r\n'
@@ -413,8 +422,8 @@ def monitor_KeyenceNotRunning(sock, machine_num):
     while(data != b'MR,+0000000001.000000\r'):
         sock.sendall(msg.encode())
         data = sock.recv(32)
-        time.sleep(.001)
-    #print(f'({machine_num}) Keyence Processing Complete!\n')
+        time.sleep(.005)
+    print(f'({machine_num}) Keyence Processing Complete!\n')
     pass
 #END monitor_KeyenceNotRunning
 
@@ -574,21 +583,17 @@ def cycle(machine_num, sock, current_stage):
 
                 #if(start_check[1] == True):
                 if(results_dict['StartProgram'][1] == True):
+                    start_timer_Trigger_to_Busy = datetime.datetime.now()
                     #Actual Keyence Trigger (T1) here***
                     TriggerKeyence(sock, machine_num, 'T1\r\n')
                     start_timer_T1_to_EndProgram = datetime.datetime.now()
                     plc.write('Program:HM1450_VS' + machine_num + '.VPC1.I.Ready', False)
                     print(f'({machine_num}) PLC(START_PROGRAM) went high! Time to trigger Keyence...\n')
 
-                    # ARTIFICIAL PAUSE TESTING, DIFFERENT ROBOT / FACE DIFFERENT TIME.SLEEP
-                    #if(machine_num == '14'):
-                        #print(f'(14) .5 SECOND ARTIFICIAL DELAY')
-                        #time.sleep(.5)
-
-                    start_timer_Trigger_to_Busy = datetime.datetime.now()
+                    start_timer_BusyWrite = datetime.datetime.now()
                     plc.write('Program:HM1450_VS' + machine_num + '.VPC1.I.Busy', True) #BUSY BEFORE KEYENCE TRIGGER TEST ***
                     end_timer_BusyWrite = datetime.datetime.now()
-                    time_diff_BusyWrite = (end_timer_BusyWrite - start_timer_Trigger_to_Busy)
+                    time_diff_BusyWrite = (end_timer_BusyWrite - start_timer_BusyWrite)
                     execution_time = time_diff_BusyWrite.total_seconds() * 1000
                     print(f'({machine_num}) Writing \'Busy\' to PLC took: {execution_time} ms')
                     #print('WAITING 2 SECONDS (TEST)')
@@ -596,9 +601,9 @@ def cycle(machine_num, sock, current_stage):
                     
                     #plc.write('Program:HM1450_VS' + machine_num + '.VPC1.I.Busy', True) # Busy goes HIGH while Keyence is scanning
                     #end_timer_Trigger_to_Busy = datetime.datetime.now()
-                    diff_timer_Trigger_to_Busy = (start_timer_T1_to_EndProgram - start_timer_Trigger_to_Busy)
+                    diff_timer_Trigger_to_Busy = (end_timer_BusyWrite - start_timer_Trigger_to_Busy)
                     execution_time = diff_timer_Trigger_to_Busy.total_seconds() * 1000
-                    print(f'({machine_num}) PLC(Busy) high to TriggerKeyence in: {execution_time} ms')
+                    print(f'({machine_num}) TriggerKeyence to PLC(Busy) high in: {execution_time} ms')
 
                     monitor_endScan(plc, machine_num, sock) # ends Keyence with EndScan
                     end_timer_T1_to_EndScan = datetime.datetime.now()
