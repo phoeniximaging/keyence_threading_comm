@@ -401,7 +401,7 @@ def monitor_endScan(plc, machine_num, sock):
         time.sleep(.005)
     #print(f'({machine_num}) PLC(END_SCAN) went high!\n')
 
-    ExtKeyence(sock) #function to interrupt Keyence
+    #ExtKeyence(sock) #function to interrupt Keyence
     pass
 #END monitor_endScan
 
@@ -629,6 +629,8 @@ def cycle(machine_num, sock, current_stage):
                     #BUSY HIGH TEST*
                     #print(f'({machine_num}) Scan ended! PHOENIX(BUSY) is low\n')
                     plc.write('Program:HM1450_VS' + machine_num + '.VPC1.I.Busy', False)
+
+                    ExtKeyence(sock) #function to interrupt Keyence
 
                     monitor_KeyenceNotRunning(sock, machine_num) # verify Keyence has processed results and written out FTP files
 
