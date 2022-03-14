@@ -312,6 +312,18 @@ def main():
     print("Connecting to PLC")
     with LogixDriver('120.57.42.114') as plc:
         while(True):
+            flipper = 0
+            while(True):
+                if(flipper == 0):
+                    plc.write('Program:HM1450_VS15.VPC1.I.Busy', False)
+                    print('Busy written FALSE, pausing 5 seconds')
+                    flipper = 1
+                    time.sleep(5)
+                else:
+                    plc.write('Program:HM1450_VS15.VPC1.I.Busy', True)
+                    print('Busy written TRUE, pausing 5 seconds')
+                    flipper = 0
+                    time.sleep(5)
 
             #reading in .csv plc emulator for initial values
             #split into two .csv files, representing each direction of traffic between PLC and Phoenix

@@ -11,8 +11,11 @@ This testing program is used to send and recv a single message from one Keyence 
 trigger_count = 0
 slow_count = 0
 longest_time = 0
-shortest_time = 12345
 current_stage = 0
+
+execution_time_1 = 0
+execution_time_2 = 0
+execution_time_3 = 0
 
 # Keyence socket connections
 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -32,6 +35,11 @@ def TriggerKeyence(sock, machine_num, item):
     global longest_time
     global start_timer_END
 
+    global execution_time_1
+    global execution_time_2
+    global execution_time_3
+
+    trg1_to_t1_start = datetime.datetime.now()
     #verify Keyence(Trg1Ready) is high before we send a 'T1' trigger
     with lock:
         message = 'MR,%Trg1Ready\r\n' #initial read of '%BUSY' to ensure scan is actually taking place (%BUSY == 1)
@@ -41,17 +49,23 @@ def TriggerKeyence(sock, machine_num, item):
 
     # looping until '%BUSY' == 0
     while(data != b'MR,+0000000001.000000\r'):
-        print(f'Keyence(Trg1Ready) was not high, \'T1\' not sent!')
+        #print(f'Keyence(Trg1Ready) was not high, \'T1\' not sent!')
         # utilizing 'with' to use thread lock
         #message = 'T1\r\n'
         message = 'MR,%Trg1Ready\r\n'
         with lock:
             sock.sendall(message.encode())
             data = sock.recv(32)
-        print(f'({machine_num}) TriggerKeyence: received "%s"' % data)
+        #print(f'({machine_num}) TriggerKeyence: received "%s"' % data)
         #print('Scanning...')
         time.sleep(.005) # artificial 1ms pause between Keyence reads
+        
+    trg1_to_t1_end = datetime.datetime.now()
+    time_diff = (trg1_to_t1_end - trg1_to_t1_start)
+    execution_time_1 = time_diff.total_seconds() * 1000
+    #print(f'Trg1Ready to T1 ready : {execution_time}')
 
+    
     message = item
     trigger_start_time = datetime.datetime.now() # marking when 'T1' is sent
     with lock:
@@ -83,14 +97,15 @@ def TriggerKeyence(sock, machine_num, item):
         with lock:
             sock.sendall(message.encode())
             data = sock.recv(32)
-        print(f'({machine_num})TriggerKeyence: received "%s"' % data)
+        #print(f'({machine_num})TriggerKeyence: received "%s"' % data)
         #print('Scanning...')
         time.sleep(.005) # artificial 1ms pause between Keyence reads
     #print('Keyence %Trg1Ready verified!')
     trigger_end_time = datetime.datetime.now() # marking when '%BUSY' is read off Keyence
     time_diff = (trigger_end_time - trigger_start_time)
-    execution_time = time_diff.total_seconds() * 1000
-    print(f'\n({machine_num}) \'T1\' sent to \'%Trg1Ready\' verified in {execution_time} ms\n')
+    execution_time_2 = time_diff.total_seconds() * 1000
+    print(f'\n({machine_num}) \'T1\' sent to \'%Trg1Ready\' verified in {execution_time_2} ms\n')
+
 #END 'TriggerKeyence'
 
 # sends 'TE,0' then 'TE,1' to the Keyence, resetting to original state (ready for new 'T1')
@@ -113,7 +128,9 @@ def ExtKeyence(sock):
 def main():
     global current_stage #keeps track of which stage program is currently in from the timing process
     global longest_time
-    global shortest_time
+    global execution_time_1
+    global execution_time_2
+    global execution_time_3
 
     #test_msg = 'MW,#PhoenixControlFaceBranch,2\r\n' #test LOAD msg
     #test_msg = 'STW,0,"LOL123ABCDBLAHBLAH***-CoverFace-2-625T\r\n' #test LOAD msg
@@ -128,12 +145,13 @@ def main():
         print(f'Execution time: {round(execution_time,2)} ms\n')
         if(execution_time > longest_time):
             longest_time = execution_time
-        if(execution_time < shortest_time):
-            shortest_time = execution_time
 
-        print(f'Shortest Execution Time: {round(shortest_time,2)} ms')
-        print(f'Longest Execution Time: {round(longest_time,2)} ms\n')
-        time.sleep(7) # artificial pause to pretend PLC sends 'EndScan' after ~7 seconds
+        print(f'Longest Execution Time: {longest_time}\n')
+
+        print(f'Trg1Ready to T1 being ready in : {execution_time_1} ms')
+        print(f'T1 sent to Trg1Ready verified in : {execution_time_2} ms')
+        
+        time.sleep(7) # artificial pause to pretend PLC sends 'EndScan' after ~7 second
 
         ExtKeyence(sock)
         time.sleep(1)
