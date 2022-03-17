@@ -18,10 +18,10 @@ execution_time_2 = 0
 execution_time_3 = 0
 
 # Keyence socket connections
-sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-sock.connect(('192.168.1.83', 8500)) # 'sock' is the connection variable used to communicate with the Keyence
-#sock_14 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-#sock_14.connect(('172.19.145.80', 8500))
+#sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+#sock.connect(('192.168.1.83', 8500)) # 'sock' is the connection variable used to communicate with the Keyence
+sock_14 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+sock_14.connect(('172.19.145.80', 8500))
 #sock_15 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 #sock_15.connect(('172.19.146.81', 8500))
 
@@ -138,7 +138,7 @@ def main():
     #test_msg = 'PR\r\n'
     while(True):
         start_timer = datetime.datetime.now()
-        TriggerKeyence(sock,'123',test_msg)
+        TriggerKeyence(sock_14,'123',test_msg)
         end_timer = datetime.datetime.now()
         time_diff = (end_timer - start_timer)
         execution_time = time_diff.total_seconds() * 1000
@@ -153,7 +153,7 @@ def main():
         
         time.sleep(7) # artificial pause to pretend PLC sends 'EndScan' after ~7 second
 
-        ExtKeyence(sock)
+        ExtKeyence(sock_14)
         time.sleep(1)
 
 #implicit 'main()' declaration

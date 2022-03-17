@@ -121,7 +121,7 @@ sock_14.connect(('172.19.145.80', 8500))
 sock_15 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 sock_15.connect(('172.19.146.81', 8500))
 
-lock = threading.Lock()
+#lock = threading.Lock()
 
 # Testing
 start_timer = datetime.datetime.now()
@@ -298,13 +298,14 @@ def TriggerKeyence(sock, machine_num, item):
     global start_timer_END
 
     #verify Keyence(Busy) is high before we send a 'T1' trigger
-    with lock:
-        message = 'MR,%Busy\r\n' #initial read of '%Busy' to ensure scan is actually taking place (%Busy == 1)
-        #message = 'MR,%Cam1Ready\r\n' # Experimental UNTESTED Keyence flag to validate if 'T1' is ready to be sent
-        sock.sendall(message.encode())
-        data = sock.recv(32)
-        #print(f'({machine_num}) %Busy = {data}')
+    #with lock:
+    message = 'MR,%Busy\r\n' #initial read of '%Busy' to ensure scan is actually taking place (%Busy == 1)
+    #message = 'MR,%Cam1Ready\r\n' # Experimental UNTESTED Keyence flag to validate if 'T1' is ready to be sent
+    sock.sendall(message.encode())
+    data = sock.recv(32)
+    #print(f'({machine_num}) %Busy = {data}')
 
+    first_busy_pull_start = datetime.datetime.now()
     # looping until '%Busy' == 0
     while(data != b'MR,+0000000000.000000\r'):
         #print(f'Keyence(Busy) was not high, \'T1\' not sent!')
@@ -312,33 +313,43 @@ def TriggerKeyence(sock, machine_num, item):
         #message = 'T1\r\n'
         message = 'MR,%Busy\r\n'
         #message = 'MR,%Cam1Ready\r\n'
-        with lock:
-            sock.sendall(message.encode())
-            data = sock.recv(32)
-        #print(f'({machine_num}) TriggerKeyence: received "%s"' % data)
+        #with lock:
+        sock.sendall(message.encode())
+        data = sock.recv(32)
+        print(f'({machine_num}) (Pre-Trigger) TriggerKeyence: received "%s"' % data)
         #print('Scanning...')
         time.sleep(.2) # artificial 1ms pause between Keyence reads
+    first_busy_pull_stop = datetime.datetime.now()
+    time_diff = (first_busy_pull_stop - first_busy_pull_start)
+    execution_time = time_diff.total_seconds() * 1000
+    if(int(execution_time) > 100):
+        print(f'\n({machine_num}) TriggerKeyence (First Busy Pull) SLOW (over 100ms)! Took {execution_time} ms!!!\n')
 
     message = item
     trigger_start_time = datetime.datetime.now() # marking when 'T1' is sent
-    with lock:
-        sock.sendall(message.encode())
-        data = sock.recv(32)
+    #with lock:
+    sock.sendall(message.encode())
+    data = sock.recv(32)
         #print(f'({machine_num}) received "%s"\n' % data)
         #start_timer_END = datetime.datetime.now() # END test timer
     #time_diff = (start_timer_END - start_timer)
     #execution_time = time_diff.total_seconds() * 1000
     #print(f'PLC(Start) read to Keyence(T1) read in : {execution_time} ms')
-
+    trigger_t1Only_end = datetime.datetime.now()
+    time_diff = (trigger_t1Only_end - trigger_start_time)
+    execution_time = time_diff.total_seconds() * 1000
+    if(int(execution_time) > 50):
+        print(f'({machine_num}) TriggerKeyence (Sending T1) SLOW (over 50ms)! Took {execution_time} ms!!!\n')
     
     #am I using these right?(!)
-    with lock:
-        message = 'MR,%Busy\r\n' #initial read of '%Busy' to ensure scan is actually taking place (%Busy == 1)
-        #message = 'MR,%Cam1Ready\r\n'
-        sock.sendall(message.encode())
-        data = sock.recv(32)
+    #with lock:
+    message = 'MR,%Busy\r\n' #initial read of '%Busy' to ensure scan is actually taking place (%Busy == 1)
+    #message = 'MR,%Cam1Ready\r\n'
+    sock.sendall(message.encode())
+    data = sock.recv(32)
         #print(f'%Busy = {data}')
     
+    final_busy_pull_start = datetime.datetime.now()
     # looping until '%Busy' == 0
     while(data != b'MR,+0000000001.000000\r'):
     #while(data != b'T1\r'):
@@ -346,16 +357,21 @@ def TriggerKeyence(sock, machine_num, item):
         #message = 'T1\r\n'
         message = 'MR,%Busy\r\n'
         #message = 'MR,%Cam1Ready\r\n'
-        with lock:
-            sock.sendall(message.encode())
-            data = sock.recv(32)
-        #print(f'({machine_num})TriggerKeyence: received "%s"' % data)
+        #with lock:
+        sock.sendall(message.encode())
+        data = sock.recv(32)
+        print(f'({machine_num}) (Post-Trigger) TriggerKeyence: received "%s"' % data)
         #print('Scanning...')
         time.sleep(.2) # artificial 1ms pause between Keyence reads
     #print('Keyence %Busy verified!')
     trigger_end_time = datetime.datetime.now() # marking when '%Busy' is read off Keyence
-    time_diff = (trigger_end_time - trigger_start_time)
+    time_diff = (trigger_end_time - final_busy_pull_start)
     execution_time = time_diff.total_seconds() * 1000
+    if(int(execution_time) > 100):
+        print(f'({machine_num}) TriggerKeyence (Final Busy Pull) SLOW (over 100ms)! Took {execution_time} ms!!!\n')
+
+    #time_diff = (trigger_end_time - trigger_start_time)
+    #execution_time = time_diff.total_seconds() * 1000
     #print(f'\n({machine_num}) \'T1\' sent to \'%Busy\' verified in {execution_time} ms\n')
     
 #END 'TriggerKeyence'
@@ -364,26 +380,46 @@ def TriggerKeyence(sock, machine_num, item):
 def LoadKeyence(sock, item):
     #print('LOADING KEYENCE\n')
     message = item # keyence message
-    with lock:
-        sock.sendall(message.encode()) # sending branch info
-        #print(f'\n\'{item}\' Sent!\n')
-        data = sock.recv(32)
-        #print('received "%s"\n' % data)
+    #with lock:
+    sock.sendall(message.encode()) # sending branch info
+    #print(f'\n\'{item}\' Sent!\n')
+    data = sock.recv(32)
+    #print('received "%s"\n' % data)
 
 # sends 'TE,0' then 'TE,1' to the Keyence, resetting to original state (ready for new 'T1')
 def ExtKeyence(sock):
     #print('ExtKeyence!')
     message = 'TE,0\r\n' # setting 'TE,0' first
-    with lock:
-        sock.sendall(message.encode()) # sending TE,0
-        data = sock.recv(32)
-        #print('\n\'TE,0\' Sent!\n')
+    #with lock:
+    sock.sendall(message.encode()) # sending TE,0
+    data = sock.recv(32)
+    #print('\n\'TE,0\' Sent!\n')
 
-        message = 'TE,1\r\n' # setting 'TE,1' to reset
-        sock.sendall(message.encode()) # sending, TE,1
-        #print('\'TE,1\' Sent!\n')
+    message = 'TE,1\r\n' # setting 'TE,1' to reset
+    sock.sendall(message.encode()) # sending, TE,1
+    #print('\'TE,1\' Sent!\n')
+    data = sock.recv(32)
+    #print('received "%s"' % data)
+
+    message = 'MR,%Busy\r\n' #initial read of '%Busy' to ensure scan is actually taking place (%Busy == 1)
+    #message = 'MR,%Cam1Ready\r\n'
+    sock.sendall(message.encode())
+    data = sock.recv(32)
+    #print(f'%Busy = {data}')
+
+    # looping until '%Busy' == 0
+    while(data != b'MR,+0000000000.000000\r'):
+    #while(data != b'T1\r'):
+        # utilizing 'with' to use thread lock
+        #message = 'T1\r\n'
+        message = 'MR,%Busy\r\n'
+        #message = 'MR,%Cam1Ready\r\n'
+        #with lock:
+        sock.sendall(message.encode())
         data = sock.recv(32)
-        #print('received "%s"' % data)
+        print(f'ExtKeyence: received "%s"' % data)
+        #print('Scanning...')
+        time.sleep(.2) # artificial 1ms pause between Keyence reads
 # END 'ExtKeyence'
 
 # reading PLC(EndScan) until it goes high to interrupt current Keyence scan
@@ -400,6 +436,11 @@ def monitor_endScan(plc, machine_num, sock):
         #plc.write('Program:HM1450_VS' + machine_num + '.VPC1.I.Heartbeat', True)
         time.sleep(.005)
     #print(f'({machine_num}) PLC(END_SCAN) went high!\n')
+
+    ### George's ROBOTPERMISSION test 
+    plc.write('Program:HM1450_VS' + machine_num + '.VPC1.I.RobotPermission', False) # STALE TEST ***
+    print(f'({machine_num}) PLC(RobotPermission) FALSE')
+    ###
 
     #ExtKeyence(sock) #function to interrupt Keyence
     pass
@@ -474,6 +515,7 @@ def cycle(machine_num, sock, current_stage):
                 while(results_dict['LoadProgram'][1] != True):
                     check_pause(machine_num) # user pause if 'p' is pressed
                     results_dict = read_plc_dict(plc, machine_num) # continuous PLC read
+
                     if (results_dict['Reset'][1] == True):
                         #print(f'({machine_num}) (LoadProgram Check) Reset Detected! Setting back to Stage 0...')
                         current_stage = 0
@@ -570,13 +612,15 @@ def cycle(machine_num, sock, current_stage):
                 #TODO Actually Mirror Data (write back to PLC)
                 #print('!Mirroring Data!\n')
                 write_plc(plc,machine_num,results_dict) #writing back mirrored values to PLC to confirm LOAD has been processed / sent to Keyence
+
+                plc.write('Program:HM1450_VS' + machine_num + '.VPC1.I.RobotPermission', True) # STALE TEST ***
+                print(f'({machine_num}) PLC(RobotPermission) TRUE')
+
                 #timer_mirrored_to_StartProgram = datetime.datetime.now()
                 #LoadProgram_to_Mirrored_diff = (timer_mirrored_to_StartProgram - load_to_trigger_start)
                 #execution_time = LoadProgram_to_Mirrored_diff.total_seconds() * 1000
                 #print(f'({machine_num}) LoadProgram(high) read until Mirror Complete in {execution_time} ms')
 
-                #csv_results['DATA'] = csv_results_plc['DATA']
-                #time.sleep(1) # FINAL SLEEP REMOVAL #artificial pause to see step happening in testing
                 #print(f'({machine_num}) Data Mirrored, Setting \'READY\' high\n')
                 plc.write('Program:HM1450_VS' + machine_num + '.VPC1.I.Ready', True)
                 #time.sleep(3) # FINAL SLEEP REMOVAL
@@ -597,6 +641,9 @@ def cycle(machine_num, sock, current_stage):
 
                 #if(start_check[1] == True):
                 if(results_dict['StartProgram'][1] == True):
+                    #time.sleep(5)
+                    #print(f'({machine_num}) StartProgram went high, artificial 5 second pause')
+
                     start_timer_Trigger_to_Busy = datetime.datetime.now()
                     #Actual Keyence Trigger (T1) here***
                     TriggerKeyence(sock, machine_num, 'T1\r\n')
@@ -611,8 +658,12 @@ def cycle(machine_num, sock, current_stage):
                     time_diff_BusyWrite = (end_timer_BusyWrite - start_timer_BusyWrite)
                     execution_time = time_diff_BusyWrite.total_seconds() * 1000
                     print(f'({machine_num}) Writing \'Busy\' to PLC took: {execution_time} ms')
-                    #print('WAITING 2 SECONDS (TEST)')
-                    #time.sleep(2) #testing pause***
+
+                    #time.sleep(5) # 1s pause so we don't accidentally stop arm from ever moving, shortest arm path ~8 seconds
+
+                    # PLC Behavior Test (3.15.22)
+                    #plc.write('Program:HM1450_VS' + machine_num + '.VPC1.I.RobotPermission', False) # STALE TEST ***
+                    #print(f'({machine_num}) PLC(RobotPermission) FALSE')
                     
                     #plc.write('Program:HM1450_VS' + machine_num + '.VPC1.I.Busy', True) # Busy goes HIGH while Keyence is scanning
                     #end_timer_Trigger_to_Busy = datetime.datetime.now()
@@ -638,7 +689,7 @@ def cycle(machine_num, sock, current_stage):
                     keyenceResults_to_PLC(sock, plc, machine_num)
                     #plc.write('Program:HM1450_VS' + machine_num + '.VPC1.I.Pass', True)
                     #plc.write('Program:HM1450_VS' + machine_num + '.VPC1.I.Done', True)
-                    #print(f'({machine_num}) PASS/FAIL/DONE data written out\n')
+                    print(f'({machine_num}) PASS/FAIL/DONE data written out\n')
                     #print('PHOENIX(PASS) and PHOENIX(DONE) = 1\n')
 
                     # Setting Chinmay's Keyence tag high

@@ -35,6 +35,8 @@ def TriggerKeyence(sock, item):
         keyence_value_raw = keyence_value_raw[0].split('+')
         keyence_value = int(keyence_value_raw[1])
         print(keyence_value)
+
+    
 #END 'TriggerKeyence'
 
 def keyenceResults_to_PLC(sock):

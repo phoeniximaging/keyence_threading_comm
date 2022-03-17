@@ -315,12 +315,12 @@ def main():
             flipper = 0
             while(True):
                 if(flipper == 0):
-                    plc.write('Program:HM1450_VS15.VPC1.I.Busy', False)
+                    plc.write('Program:HM1450_VS15.VPC1.I.RobotPermission', False)
                     print('Busy written FALSE, pausing 5 seconds')
                     flipper = 1
                     time.sleep(5)
                 else:
-                    plc.write('Program:HM1450_VS15.VPC1.I.Busy', True)
+                    plc.write('Program:HM1450_VS15.VPC1.I.RobotPermission', True)
                     print('Busy written TRUE, pausing 5 seconds')
                     flipper = 0
                     time.sleep(5)
