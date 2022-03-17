@@ -15,8 +15,8 @@ shortest_time = 100
 current_stage = 0
 
 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-#sock.connect(('192.168.1.83', 8500)) # 'sock' is the connection variable used to communicate with the Keyence (Livonia)
-sock.connect(('172.19.147.82', 8500))
+sock.connect(('192.168.1.83', 8500)) # 'sock' is the connection variable used to communicate with the Keyence (Livonia)
+#sock.connect(('172.19.147.82', 8500))
 
 lock = threading.Lock()
 
@@ -105,11 +105,27 @@ def ExtKeyence(sock):
         #print('received "%s"' % data)
 # END 'ExtKeyence'
 
+def KeyenceTester(sock):
+    message = 'OW,42,"LOL015365G011712696498GR800-CoverFace-2-625T-10Largest.csv' # setting 'TE,0' first
+    with lock:
+        sock.sendall(message.encode()) # sending TE,0
+        data = sock.recv(32)
+        print(f'{data}')
+    time.sleep(3)
+    message = 'OW,43,"LOL015365G011712696498GR800-CoverFace-2-625T-10Largest.csv' # setting 'TE,0' first
+    with lock:
+        sock.sendall(message.encode()) # sending TE,0
+        data = sock.recv(32)
+        print(f'{data}')
+
 #START main()
 def main():
     global current_stage #keeps track of which stage program is currently in from the timing process
     global longest_time
     global shortest_time
+
+    KeyenceTester(sock)
+    time.sleep(100)
 
     #test_msg = 'MW,#PhoenixControlFaceBranch,2\r\n' #test LOAD msg
     #test_msg = 'STW,0,"LOL123ABCDBLAHBLAH***-CoverFace-2-625T\r\n' #test LOAD msg

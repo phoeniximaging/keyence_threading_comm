@@ -32,7 +32,7 @@ sock_1.connect(('172.19.147.82', 8500)) # GROB address, Keyence head #1
 sock_2 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 sock_2.connect(('172.19.148.83', 8500)) # GROB address, Keyence head #2
 
-lock = threading.Lock()
+#lock = threading.Lock()
 
 arrayOutTags = [
     'LOAD_PROGRAM',
@@ -168,11 +168,11 @@ def TriggerKeyence(sock, machine_num, item):
     global start_timer_END
 
     #verify Keyence(Trg1Ready) is high before we send a 'T1' trigger
-    with lock:
-        message = 'MR,%Trg1Ready\r\n' #initial read of '%BUSY' to ensure scan is actually taking place (%BUSY == 1)
-        sock.sendall(message.encode())
-        data = sock.recv(32)
-        print(f'({machine_num}) %Trg1Ready = {data}')
+    #with lock:
+    message = 'MR,%Trg1Ready\r\n' #initial read of '%BUSY' to ensure scan is actually taking place (%BUSY == 1)
+    sock.sendall(message.encode())
+    data = sock.recv(32)
+    print(f'({machine_num}) %Trg1Ready = {data}')
 
     # looping until '%BUSY' == 0
     while(data != b'MR,+0000000001.000000\r'):
@@ -180,30 +180,30 @@ def TriggerKeyence(sock, machine_num, item):
         # utilizing 'with' to use thread lock
         #message = 'T1\r\n'
         message = 'MR,%Trg1Ready\r\n'
-        with lock:
-            sock.sendall(message.encode())
-            data = sock.recv(32)
+        #with lock:
+        sock.sendall(message.encode())
+        data = sock.recv(32)
         print(f'({machine_num}) TriggerKeyence: received "%s"' % data)
         #print('Scanning...')
         time.sleep(.2) # artificial 1ms pause between Keyence reads
 
     message = item
     trigger_start_time = datetime.datetime.now() # marking when 'T1' is sent
-    with lock:
-        sock.sendall(message.encode())
-        data = sock.recv(32)
-        print(f'({machine_num}) received "%s"\n' % data)
+    #with lock:
+    sock.sendall(message.encode())
+    data = sock.recv(32)
+    print(f'({machine_num}) received "%s"\n' % data)
         #start_timer_END = datetime.datetime.now() # END test timer
     #time_diff = (start_timer_END - start_timer)
     #execution_time = time_diff.total_seconds() * 1000
     #print(f'PLC(Start) read to Keyence(T1) read in : {execution_time} ms')
 
     #am I using these right?(!)
-    with lock:
-        message = 'MR,%Trg1Ready\r\n' #initial read of '%BUSY' to ensure scan is actually taking place (%BUSY == 1)
-        sock.sendall(message.encode())
-        data = sock.recv(32)
-        print(f'%Trg1Ready = {data}')
+    #with lock:
+    message = 'MR,%Trg1Ready\r\n' #initial read of '%BUSY' to ensure scan is actually taking place (%BUSY == 1)
+    sock.sendall(message.encode())
+    data = sock.recv(32)
+    print(f'%Trg1Ready = {data}')
     
     '''
     if(execution_time > longest_time):
@@ -215,9 +215,9 @@ def TriggerKeyence(sock, machine_num, item):
         # utilizing 'with' to use thread lock
         #message = 'T1\r\n'
         message = 'MR,%Trg1Ready\r\n'
-        with lock:
-            sock.sendall(message.encode())
-            data = sock.recv(32)
+        #with lock:
+        sock.sendall(message.encode())
+        data = sock.recv(32)
         print(f'({machine_num})TriggerKeyence: received "%s"' % data)
         #print('Scanning...')
         time.sleep(.2) # artificial 1ms pause between Keyence reads
@@ -232,26 +232,26 @@ def TriggerKeyence(sock, machine_num, item):
 def LoadKeyence(sock, item):
     print('LOADING KEYENCE')
     message = item # setting 'TE,0' first
-    with lock:
-        sock.sendall(message.encode()) # sending TE,0
-        print(f'\n\'{item}\' Sent!')
-        data = sock.recv(32)
-        print('received "%s"' % data)
+    #with lock:
+    sock.sendall(message.encode()) # sending TE,0
+    print(f'\n\'{item}\' Sent!')
+    data = sock.recv(32)
+    print('received "%s"' % data)
 
 # sends 'TE,0' then 'TE,1' to the Keyence, resetting to original state (ready for new 'T1')
 def ExtKeyence(sock):
     #print('ExtKeyence!')
     message = 'TE,0\r\n' # setting 'TE,0' first
-    with lock:
-        sock.sendall(message.encode()) # sending TE,0
-        data = sock.recv(32)
-        #print('\n\'TE,0\' Sent!\n')
+    #with lock:
+    sock.sendall(message.encode()) # sending TE,0
+    data = sock.recv(32)
+    #print('\n\'TE,0\' Sent!\n')
 
-        message = 'TE,1\r\n' # setting 'TE,1' to reset
-        sock.sendall(message.encode()) # sending, TE,1
-        #print('\'TE,1\' Sent!\n')
-        data = sock.recv(32)
-        #print('received "%s"' % data)
+    message = 'TE,1\r\n' # setting 'TE,1' to reset
+    sock.sendall(message.encode()) # sending, TE,1
+    #print('\'TE,1\' Sent!\n')
+    data = sock.recv(32)
+    #print('received "%s"' % data)
 # END 'ExtKeyence'
 
 ### THE PASTE
@@ -437,6 +437,10 @@ def cycle(machine_num, sock, current_stage):
                 LoadKeyence(sock,'STW,0,"' + keyence_string + '\r\n') # PASSing external string to Keyence for file naming (?)
                 print(f'({machine_num}) Keyence Loaded!\n')
 
+                PUN_display = results_dict['PUN'] # because I don't know how to print this with apostrophes around dict keys :D
+                # Printing PUN per Grob's request
+                print(f'***\n({machine_num}) PUN : {PUN_display}***\n')
+
                 #TODO Actually Mirror Data (write back to PLC)
                 #print('!Mirroring Data!\n')
                 write_plc(plc,machine_num,results_dict) #writing back mirrored values to PLC to confirm LOAD has been processed / sent to Keyence
@@ -498,7 +502,7 @@ def cycle(machine_num, sock, current_stage):
                     plc.write('Program:CM080CA01.PorosityInspect.CAM0' + machine_num + '.I.BUSY', False)
 
                     #TODO PASS/FAIL RESULTS
-                    keyenceResults_to_PLC(sock, plc, machine_num)
+                    keyenceResults_to_PLC(sock, plc, machine_num, keyence_string)
 
                     # Setting Chinmay's Keyence tag high
                     keyence_msg = 'MW,#PhoenixControlContinue,1\r\n'
@@ -590,9 +594,14 @@ def heartbeat(machine_num):
 #END heartbeat
 
 # read defect information from the Keyence, then PASSes that as well as PASS,FAIL,DONE to PLC
-def keyenceResults_to_PLC(sock, plc, machine_num):
+def keyenceResults_to_PLC(sock, plc, machine_num, face_name):
     #TODO read results from Keyence then PASS to proper tags on PLC
-    result_messages = ['MR,#ReportDefectCount\r\n', 'MR,#ReportLargestDefectSize\r\n', 'MR,#ReportLargestDefectZoneNumber\r\n', 'MR,#ReportPass\r\n', 'MR,#ReportFail\r\n']
+    result_messages = [
+        #'MR,#ReportDefectCount\r\n',
+        #'MR,#ReportLargestDefectSize\r\n',
+        #'MR,#ReportLargestDefectZoneNumber\r\n',
+        'MR,#ReportPass\r\n',
+        'MR,#ReportFail\r\n']
     results = []
 
     # sending result messages to Keyence, then cleaning results to 'human-readable' list
@@ -604,15 +613,19 @@ def keyenceResults_to_PLC(sock, plc, machine_num):
         keyence_value = int(keyence_value_raw[1])
         results.append(keyence_value)
 
+    print(f'({machine_num}) {face_name} Keyence Results : {results}')
+    print(f'({machine_num}) WRITING ABOVE VALUES TO PLC IN 10 SECONDS!...')
+    #time.sleep(10)
+
     # writing normalized Keyence results to proper PLC tags
     plc.write(
-        ('Program:CM080CA01.PorosityInspect.CAM0' + machine_num + '.I.DEFECT_NUMBER', results[0]),
-        ('Program:CM080CA01.PorosityInspect.CAM0' + machine_num + '.I.DEFECT_SIZE', results[1]),
-        ('Program:CM080CA01.PorosityInspect.CAM0' + machine_num + '.I.DEFECT_ZONE', results[2]),
-        ('Program:CM080CA01.PorosityInspect.CAM0' + machine_num + '.I.PASS', results[3]),
-        ('Program:CM080CA01.PorosityInspect.CAM0' + machine_num + '.I.FAIL', results[4]),
+        #('Program:CM080CA01.PorosityInspect.CAM0' + machine_num + '.I.DEFECT_NUMBER', results[0]),
+        #('Program:CM080CA01.PorosityInspect.CAM0' + machine_num + '.I.DEFECT_SIZE', results[1]),
+        #('Program:CM080CA01.PorosityInspect.CAM0' + machine_num + '.I.DEFECT_ZONE', results[2]),
+        ('Program:CM080CA01.PorosityInspect.CAM0' + machine_num + '.I.PASS', results[0]),
+        ('Program:CM080CA01.PorosityInspect.CAM0' + machine_num + '.I.FAIL', results[1]),
     )
-    print(f'({machine_num}) PASS = {results[3]} ; FAIL = {results[4]}')
+    #print(f'({machine_num}) PASS = {results[3]} ; FAIL = {results[4]}')
     plc.write('Program:CM080CA01.PorosityInspect.CAM0' + machine_num + '.I.DONE', True)
     print(f'({machine_num}) Keyence Results written to PLC!')
 
@@ -623,15 +636,15 @@ def KeyenceSwapCheck(sock,machine_num,program_num):
     print(f'({machine_num}) Validating Keyence has proper program loaded...')
     msg = 'PR\r\n'
 
-    with lock:
-        sock.sendall(msg.encode())
-        data = sock.recv(32)
-        #print('received "%s"' % data)
-    
-        keyence_value_raw = str(data).split(',')
-        keyence_value_raw = str(keyence_value_raw[2]).split('\\')
-        print(f'({machine_num}) Keyence currently has program : {keyence_value_raw[0][3]} loaded')
-        keyence_value = keyence_value_raw[0][3] # current program number loaded on Keyence
+    #with lock:
+    sock.sendall(msg.encode())
+    data = sock.recv(32)
+    #print('received "%s"' % data)
+
+    keyence_value_raw = str(data).split(',')
+    keyence_value_raw = str(keyence_value_raw[2]).split('\\')
+    print(f'({machine_num}) Keyence currently has program : {keyence_value_raw[0][3]} loaded')
+    keyence_value = keyence_value_raw[0][3] # current program number loaded on Keyence
     
     if(keyence_value != program_num):
         print(f'({machine_num}) Swapping Keyence program to: {program_num}')
@@ -663,7 +676,6 @@ def main():
     t1_heartbeat.start()
     t2_heartbeat.start()
     
-
     '''
     p1 = Process(target=cycle, args=('14', sock_14, current_stage_14))
     p1.start()
