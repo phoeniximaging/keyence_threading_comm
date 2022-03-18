@@ -659,7 +659,6 @@ def cycle(machine_num, current_stage):
                         #Actual Keyence Trigger (T1) here***
                         TriggerKeyence(sock, machine_num, 'T1\r\n')
                         print(f'({machine_num}) **************Keyence Triggered!*****************\n')
-                        time.sleep(3)
                         start_timer_T1_to_EndProgram = datetime.datetime.now()
                         time_diff = (start_timer_T1_to_EndProgram - start_timer_Trigger_to_Busy)
                         execution_time = time_diff.total_seconds() * 1000
