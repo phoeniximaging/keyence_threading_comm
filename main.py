@@ -438,8 +438,8 @@ def monitor_endScan(plc, machine_num, sock):
     #print(f'({machine_num}) PLC(END_SCAN) went high!\n')
 
     ### George's ROBOTPERMISSION test 
-    plc.write('Program:HM1450_VS' + machine_num + '.VPC1.I.RobotPermission', False) # STALE TEST ***
-    print(f'({machine_num}) PLC(RobotPermission) FALSE')
+    #plc.write('Program:HM1450_VS' + machine_num + '.VPC1.I.RobotPermission', False) # STALE TEST ***
+    #print(f'({machine_num}) PLC(RobotPermission) FALSE')
     ###
 
     #ExtKeyence(sock) #function to interrupt Keyence
@@ -481,7 +481,7 @@ def cycle(machine_num, sock, current_stage):
     with LogixDriver('120.57.42.114') as plc:
         print(f'({machine_num}) Connected to PLC')
         while(True):
-            check_pause(machine_num) # user pause if 'p' is pressed
+            #check_pause(machine_num) # user pause if 'p' is pressed
 
             #print(f'({machine_num}) Reading PLC\n')
             results_dict = read_plc_dict(plc, machine_num) #initial PLC tag read for 'robot 14' values
@@ -513,7 +513,7 @@ def cycle(machine_num, sock, current_stage):
                 #print(f'({machine_num}) Stage 0 : Listening for PLC(LOAD_PROGRAM) = 1\n')
                 #reading PLC until LOAD_PROGRAM goes high
                 while(results_dict['LoadProgram'][1] != True):
-                    check_pause(machine_num) # user pause if 'p' is pressed
+                    #check_pause(machine_num) # user pause if 'p' is pressed
                     results_dict = read_plc_dict(plc, machine_num) # continuous PLC read
 
                     if (results_dict['Reset'][1] == True):
@@ -599,7 +599,18 @@ def cycle(machine_num, sock, current_stage):
                     elif(results_dict['PartProgram'][1] == 12):
                         keyence_string = 'RearFace-45T3'
 
-                keyence_string = keyence_string + '_' + str(results_dict['Year'][1]) + '_' + str(results_dict['Month'][1]) + '_' + str(results_dict['Day'][1]) + '_' + str(results_dict['Hour'][1]) + '_' + str(results_dict['Minute'][1])+ '_' + str(results_dict['Second'][1])
+                datetime_info_len_check = [str(results_dict['Month'][1]), str(results_dict['Day'][1]), str(results_dict['Hour'][1]), str(results_dict['Minute'][1]), str(results_dict['Second'][1])]
+
+                for field in datetime_info_len_check:
+                    if(len(field) < 2):
+                        field = '0' + field
+                '''
+                month_len_check = str(results_dict['Month'][1])
+                if(len(month_len_check) < 2):
+                    month_len_check = '0' + month_len_check
+                '''
+
+                keyence_string = str(results_dict['Year'][1]) + '-' + datetime_info_len_check[0] + '-' + datetime_info_len_check[1] + '-' + datetime_info_len_check[2] + '-' + datetime_info_len_check[3] + '-' + datetime_info_len_check[4] + '_' + keyence_string
                 print(f'({machine_num}) LOADING : {keyence_string}')
 
                 #load_to_trigger_start = datetime.datetime.now()
@@ -607,14 +618,17 @@ def cycle(machine_num, sock, current_stage):
                 #print(f'Loading: {keyence_string}')
                 LoadKeyence(sock,'MW,#PhoenixControlFaceBranch,' + str(results_dict['PartProgram'][1]) + '\r\n') #Keyence loading message, uses PartProgram from PLC to load specific branch
                 LoadKeyence(sock,'STW,0,"' + keyence_string + '\r\n') # passing external string to Keyence for file naming (?)
+                LoadKeyence(sock,'OW,42,"' + keyence_string + '-ResultOutput.csv\r\n') # .csv file naming loads
+                LoadKeyence(sock,'OW,43,"' + keyence_string + '-10Largest.csv\r\n')
+                LoadKeyence(sock,'OW,44,"' + keyence_string + '-10Locations.csv\r\n')
                 #print(f'({machine_num}) Keyence Loaded!\n')
 
                 #TODO Actually Mirror Data (write back to PLC)
                 #print('!Mirroring Data!\n')
                 write_plc(plc,machine_num,results_dict) #writing back mirrored values to PLC to confirm LOAD has been processed / sent to Keyence
 
-                plc.write('Program:HM1450_VS' + machine_num + '.VPC1.I.RobotPermission', True) # STALE TEST ***
-                print(f'({machine_num}) PLC(RobotPermission) TRUE')
+                #plc.write('Program:HM1450_VS' + machine_num + '.VPC1.I.RobotPermission', True) # STALE TEST ***
+                #print(f'({machine_num}) PLC(RobotPermission) TRUE')
 
                 #timer_mirrored_to_StartProgram = datetime.datetime.now()
                 #LoadProgram_to_Mirrored_diff = (timer_mirrored_to_StartProgram - load_to_trigger_start)
@@ -657,7 +671,7 @@ def cycle(machine_num, sock, current_stage):
                     end_timer_BusyWrite = datetime.datetime.now()
                     time_diff_BusyWrite = (end_timer_BusyWrite - start_timer_BusyWrite)
                     execution_time = time_diff_BusyWrite.total_seconds() * 1000
-                    print(f'({machine_num}) Writing \'Busy\' to PLC took: {execution_time} ms')
+                    #print(f'({machine_num}) Writing \'Busy\' to PLC took: {execution_time} ms')
 
                     #time.sleep(5) # 1s pause so we don't accidentally stop arm from ever moving, shortest arm path ~8 seconds
 
@@ -683,13 +697,18 @@ def cycle(machine_num, sock, current_stage):
 
                     ExtKeyence(sock) #function to interrupt Keyence
 
+                    keyence_result_check_start = datetime.datetime.now()
                     monitor_KeyenceNotRunning(sock, machine_num) # verify Keyence has processed results and written out FTP files
+                    keyence_result_check_end = datetime.datetime.now()
+                    time_diff = (keyence_result_check_end - keyence_result_check_start)
+                    execution_time = time_diff.total_seconds() * 1000
+                    print(f'({machine_num}) KeyenceNotRunning verified in : {execution_time} ms')
 
                     #TODO PASS/FAIL RESULTS
                     keyenceResults_to_PLC(sock, plc, machine_num)
                     #plc.write('Program:HM1450_VS' + machine_num + '.VPC1.I.Pass', True)
                     #plc.write('Program:HM1450_VS' + machine_num + '.VPC1.I.Done', True)
-                    print(f'({machine_num}) PASS/FAIL/DONE data written out\n')
+                    #print(f'({machine_num}) PASS/FAIL/DONE data written out\n')
                     #print('PHOENIX(PASS) and PHOENIX(DONE) = 1\n')
 
                     # Setting Chinmay's Keyence tag high
@@ -726,7 +745,7 @@ def cycle(machine_num, sock, current_stage):
                     #print(f'({machine_num}) Artificial Pause (1 seconds)...Then Ready high')
                     #time.sleep(1)
                     
-                    check_pause(machine_num) # checking if user wants to pause
+                    #check_pause(machine_num) # checking if user wants to pause
 
                 if(results_dict['EndProgram'][1] == False and done_check[1] == False):
                     #print(f'({machine_num}) PLC(END_PROGRAM) is low. Resetting PHOENIX to Stage 0\n')
