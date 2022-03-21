@@ -12,9 +12,9 @@ from multiprocessing import Process
 import keyboard
 
 '''
-This is the first testing thread for Elwema using threading and an all-in-one Python program.
+Confirmed Elwema test. Automatically cycles based on PLC reads
 
-Theoretically runs machine 14 and 15 simultaneously, semi-tested (inconsistent variable delay before/after part being scanned)
+First iteration of error handling and self-correction (as well as fault codes)
 '''
 
 trigger_count = 0
@@ -463,10 +463,41 @@ def monitor_KeyenceNotRunning(sock, machine_num):
     pass
 #END monitor_KeyenceNotRunning
 
+# read defect information from the Keyence, then passes that as well as pass,fail,done to PLC
+def keyenceResults_to_PLC(sock, plc, machine_num):
+    #TODO read results from Keyence then pass to proper tags on PLC
+    result_messages = ['MR,#ReportDefectCount\r\n', 'MR,#ReportLargestDefectSize\r\n', 'MR,#ReportLargestDefectZoneNumber\r\n', 'MR,#ReportPass\r\n', 'MR,#ReportFail\r\n']
+    results = []
+
+    # sending result messages to Keyence, then cleaning results to 'human-readable' list
+    for msg in result_messages:
+        sock.sendall(msg.encode())
+        data = sock.recv(32)
+        keyence_value_raw = str(data).split('.')
+        keyence_value_raw = keyence_value_raw[0].split('+')
+        keyence_value = int(keyence_value_raw[1])
+        results.append(keyence_value)
+
+    # writing normalized Keyence results to proper PLC tags
+    plc.write(
+        ('Program:HM1450_VS' + machine_num + '.VPC1.I.Defect_Number', results[0]),
+        ('Program:HM1450_VS' + machine_num + '.VPC1.I.Defect_Size', results[1]),
+        ('Program:HM1450_VS' + machine_num + '.VPC1.I.DefectZone', results[2]),
+        ('Program:HM1450_VS' + machine_num + '.VPC1.I.Pass', results[3]),
+        ('Program:HM1450_VS' + machine_num + '.VPC1.I.Fail', results[4]),
+    )
+    #print(f'({machine_num}) Pass = {results[3]} ; Fail = {results[4]}')
+    plc.write('Program:HM1450_VS' + machine_num + '.VPC1.I.Done', True)
+    #print(f'({machine_num}) Keyence Results written to PLC!')
+    return results
+
+#END keyenceResults_to_PLC
+
 # primary function, to be used by 14/15 threads
 def cycle(machine_num, current_stage):
     global start_timer #testing
     is_paused = False
+    global kill_threads
 
     #print(f'({machine_num}) Connecting to PLC\n')
     with LogixDriver('120.57.42.114') as plc:
@@ -488,6 +519,9 @@ def cycle(machine_num, current_stage):
             )
 
             while(True):
+                if(kill_threads):
+                    print(f'({machine_num}) kill_threads detected! Restarting threads...')
+                    break
                 #check_pause(machine_num) # user pause if 'p' is pressed
 
                 #print(f'({machine_num}) Reading PLC\n')
@@ -565,6 +599,7 @@ def cycle(machine_num, current_stage):
                     '''
 
                     keyence_string = '' #building out external Keyence string for scan file naming
+                    
                     if(machine_num == '14'):
                         if(results_dict['PartProgram'][1] == 1):
                             keyence_string = 'CoverFace-1-625T'
@@ -619,9 +654,9 @@ def cycle(machine_num, current_stage):
                     datetime_info_len_check = [str(results_dict['Month'][1]), str(results_dict['Day'][1]), str(results_dict['Hour'][1]), str(results_dict['Minute'][1]), str(results_dict['Second'][1])]
 
                     #confirming all date/time fields are 2 digits (except year)
-                    for field in datetime_info_len_check:
-                        if(len(field) < 2):
-                            field = '0' + field
+                    for x in range(0,len(datetime_info_len_check)):
+                        if(len(datetime_info_len_check[x]) < 2):
+                            datetime_info_len_check[x] = '0' + datetime_info_len_check[x]
 
                     keyence_string = str(results_dict['Year'][1]) + '-' + datetime_info_len_check[0] + '-' + datetime_info_len_check[1] + '-' + datetime_info_len_check[2] + '-' + datetime_info_len_check[3] + '-' + datetime_info_len_check[4] + '_' + keyence_string
                     print(f'({machine_num}) LOADING : {keyence_string}')
@@ -710,8 +745,16 @@ def cycle(machine_num, current_stage):
                                 ('Program:HM1450_VS' + machine_num + '.VPC1.I.Faulted', True)
                             )
 
+                        #abort test, if image was clipped
+                        #plc.write('Program:HM1450_VS' + machine_num + '.VPC1.I.Aborted', True)
+                        #print(f'({machine_num}) PLC(Aborted) high artificially, waiting .5 sec')
+                        #time.sleep(.5)
+
                         #TODO PASS/FAIL RESULTS
-                        keyenceResults_to_PLC(sock, plc, machine_num)
+                        keyence_results = []
+                        keyence_results = keyenceResults_to_PLC(sock, plc, machine_num)
+
+                        create_csv(machine_num, results_dict, keyence_results, keyence_string) # results to .csv
 
                         # Setting Chinmay's Keyence tag high
                         keyence_msg = 'MW,#PhoenixControlContinue,1\r\n'
@@ -737,7 +780,8 @@ def cycle(machine_num, current_stage):
                         plc.write(
                             ('Program:HM1450_VS' + machine_num + '.VPC1.I.Busy', False),
                             ('Program:HM1450_VS' + machine_num + '.VPC1.I.Pass', False),
-                            ('Program:HM1450_VS' + machine_num + '.VPC1.I.Fail', False)
+                            ('Program:HM1450_VS' + machine_num + '.VPC1.I.Fail', False),
+                            ('Program:HM1450_VS' + machine_num + '.VPC1.I.Aborted', False)
                         )
                         plc.write('Program:HM1450_VS' + machine_num + '.VPC1.I.Done', False)
 
@@ -755,6 +799,7 @@ def cycle(machine_num, current_stage):
                         #time.sleep(1)
                     
                 if(kill_threads == True):
+                    print(f'({machine_num}) Cycle : kill_threads high, restarting all threads')
                     break # Kill thread if global is set True for any reason
                 time.sleep(.005) #artificial loop timer
         except Exception as e:
@@ -764,7 +809,14 @@ def cycle(machine_num, current_stage):
                     ('Program:HM1450_VS' + machine_num + '.VPC1.I.PhoenixFltCode', 1),
                     ('Program:HM1450_VS' + machine_num + '.VPC1.I.Faulted', True)
                 )
+            if(str(e) == 'failed to receive reply'):
+                print(f'({machine_num}) Keyence Connection Error, sending PhoenixFltCode : 4')
+                plc.write(
+                    ('Program:HM1450_VS' + machine_num + '.VPC1.I.PhoenixFltCode', 4),
+                    ('Program:HM1450_VS' + machine_num + '.VPC1.I.Faulted', True)
+                )
             print(f'({machine_num}) Exception! {e}')
+            kill_threads = True # global to stop/restart all threads
         
 
 # function to check if user is holding down 'p' to pause the cycle, then resumes on next 'p'
@@ -799,6 +851,7 @@ def check_pause(machine_num):
                 time.sleep(1)
 #END check_pause
 
+#sets PLC(Heartbeat) high every second to verify we're still running and communicating
 def heartbeat(machine_num):
     with LogixDriver('120.57.42.114') as plc:
         print(f'({machine_num}) Heartbeat thread connected to PLC. Writing \'Heartbeat\' high every 1 second')
@@ -806,41 +859,62 @@ def heartbeat(machine_num):
             plc.write('Program:HM1450_VS' + machine_num + '.VPC1.I.Heartbeat', True)
             #print(f'({machine_num}) Heartbeat written HIGH')
             time.sleep(1)
+            if(kill_threads == True):
+                print(f'({machine_num}) Heartbeat : kill_threads high, restarting all threads')
+                break # Kill thread if global is set True for any reason
 #END heartbeat
 
-# read defect information from the Keyence, then passes that as well as pass,fail,done to PLC
-def keyenceResults_to_PLC(sock, plc, machine_num):
-    #TODO read results from Keyence then pass to proper tags on PLC
-    result_messages = ['MR,#ReportDefectCount\r\n', 'MR,#ReportLargestDefectSize\r\n', 'MR,#ReportLargestDefectZoneNumber\r\n', 'MR,#ReportPass\r\n', 'MR,#ReportFail\r\n']
-    results = []
+# George's request for a .csv file per inspection
+def create_csv(machine_num, results, keyence_results, face_name):
+    #E:\FTP\172.19.146.81\xg\result
+    file_name = '' #empty string for .csv file name
+    if(machine_num == '14'):
+        file_name = 'E:\\FTP\\172.19.145.80\\xg\\result'
+    elif(machine_num == '15'):
+        file_name = 'E:\\FTP\\172.19.146.81\\xg\\result'
+    file_name = file_name + '\\' + face_name + '.txt'
+    with open(file_name, 'w', newline='') as f:
+        f.write('PART_TYPE_2, ' + str(results['PartType'][1]) + '\n')
+        f.write('PART_PROGRAM_2, ' + str(results['PartProgram'][1]) + '\n')
+        f.write('SCAN_NUMBER_2, ' + str(results['ScanNumber'][1]) + '\n')
+        f.write('PUN_2, ' + intArray_to_str(results['PUN'][1]) + '\n')
+        f.write('GM_PART_NUMBER_2, ' + intArray_to_str(results['GMPartNumber'][1]) + '\n')
+        f.write('MODULE_2, ' + str(results['Module'][1]) + '\n')
+        f.write('PLANTCODE_2, ' + str(results['PlantCode'][1]) + '\n')
+        f.write('MONTH_2, ' + str(results['Month'][1]) + '\n')
+        f.write('DAY_2, ' + str(results['Day'][1]) + '\n')
+        f.write('YEAR_2, ' + str(results['Year'][1]) + '\n')
+        f.write('HOUR_2, ' + str(results['Hour'][1]) + '\n')
+        f.write('MINUTE_2, ' + str(results['Minute'][1]) + '\n')
+        f.write('SECOND_2, ' + str(results['Second'][1]) + '\n')
+        f.write('OP 110 CNC_2, ' + str(results['QualityCheckOP110'][1]) + '\n')
+        f.write('OP 120 CNC_2, ' + str(results['QualityCheckOP120'][1]) + '\n')
+        f.write('OP 130 CNC_2, ' + str(results['QualityCheckOP130'][1]) + '\n')
+        f.write('OP 140 CNC_2, ' + str(results['QualityCheckOP140'][1]) + '\n')
+        f.write('OP 150 CNC_2, ' + str(results['QualityCheckOP150'][1]) + '\n')
+        f.write('OP_310_DECK_MILL_CNC_2, ' + str(results['QualityCheckOP310'][1]) + '\n')
+        f.write('OP 320 CNC_2, ' + str(results['QualityCheckOP320'][1]) + '\n')
+        f.write('OP 330 CNC_2, ' + str(results['QualityCheckOP330'][1]) + '\n')
+        f.write('OP 340 CNC_2, ' + str(results['QualityCheckOP340'][1]) + '\n')
+        f.write('OP 360 CNC_2, ' + str(results['QualityCheckOP360'][1]) + '\n')
+        f.write('OP 370 CNC_2, ' + str(results['QualityCheckOP370'][1]) + '\n')
+        f.write('OP 380 CNC_2, ' + str(results['QualityCheckOP380'][1]) + '\n')
+        f.write('OP 390 CNC_2, ' + str(results['QualityCheckOP390'][1]) + '\n')
+        f.write('Scout_part_tracking_2, ' + str(results['QualityCheckScoutPartTracking'][1]) + '\n')
+        f.write('Defect_Number_2, ' + str(keyence_results[0]) + '\n')
+        f.write('Defect_Size_2, ' + str(keyence_results[1]) + '\n')
+        f.write('Defect_Zone_2, ' + str(keyence_results[2]) + '\n')
+        f.write('PASS_2, ' + str(keyence_results[3]) + '\n')
+        f.write('FAIL_2, ' + str(keyence_results[4]) + '\n')
 
-    # sending result messages to Keyence, then cleaning results to 'human-readable' list
-    for msg in result_messages:
-        sock.sendall(msg.encode())
-        data = sock.recv(32)
-        keyence_value_raw = str(data).split('.')
-        keyence_value_raw = keyence_value_raw[0].split('+')
-        keyence_value = int(keyence_value_raw[1])
-        results.append(keyence_value)
-
-    # writing normalized Keyence results to proper PLC tags
-    plc.write(
-        ('Program:HM1450_VS' + machine_num + '.VPC1.I.Defect_Number', results[0]),
-        ('Program:HM1450_VS' + machine_num + '.VPC1.I.Defect_Size', results[1]),
-        ('Program:HM1450_VS' + machine_num + '.VPC1.I.DefectZone', results[2]),
-        ('Program:HM1450_VS' + machine_num + '.VPC1.I.Pass', results[3]),
-        ('Program:HM1450_VS' + machine_num + '.VPC1.I.Fail', results[4]),
-    )
-    #print(f'({machine_num}) Pass = {results[3]} ; Fail = {results[4]}')
-    plc.write('Program:HM1450_VS' + machine_num + '.VPC1.I.Done', True)
-    #print(f'({machine_num}) Keyence Results written to PLC!')
-
-#END keyenceResults_to_PLC
+    pass
+#END create_csv
 
 #START main()
 def main():
     global current_stage_14 #keeps track of which stage program is currently in from the timing process
     global current_stage_15
+    global kill_threads # signal to end threads if an exception is thrown
 
     #declaring threads, does not run
     #t1 = threading.Thread(target=TriggerKeyence, args=[sock, 'T1\r\n']) #thread1, passing in socket connection and 'T1' keyence command
@@ -854,6 +928,7 @@ def main():
     t1_heartbeat = threading.Thread(target=heartbeat, args=['14'])
     t2_heartbeat = threading.Thread(target=heartbeat, args=['15'])
 
+    kill_threads = False
     print("Starting Threads (14 & 15)...")
     t1.start()
     t2.start()
@@ -863,6 +938,11 @@ def main():
     print("Starting Heartbeat Threads (14 & 15)")
     t1_heartbeat.start()
     t2_heartbeat.start()
+
+    t1.join()
+    t2.join()
+    t1_heartbeat.join()
+    t2_heartbeat.join()
     
     #print('This code is beyond the threads!')
 
@@ -870,4 +950,5 @@ def main():
 
 #implicit 'main()' declaration
 if __name__ == '__main__':
-    main()
+    while(True):
+        main()
