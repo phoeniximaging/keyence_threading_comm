@@ -112,6 +112,19 @@ def read_plc_dict(plc, machine_num):
     return readDict
 #END read_plc_dict
 
+#function to translate PLC int-arrays into ASCII str for OPC
+def intArray_to_str(intArray):
+    strReturn = ""
+    #print(intArray)
+
+    #reads each 'int' from array then appends to 'str' array in char form (per element)
+    for i in range(len(intArray)):
+        strReturn += chr(intArray[i])
+
+    #print(strReturn)
+    return strReturn
+#END intArray_to_str
+
 #Writing back to PLC to mirror data on LOAD
 #TODO: Modify to use running values instead of relying on reads from an OPC server
 def write_plc(plc, machine_num, results):
@@ -230,6 +243,22 @@ def TriggerKeyence(sock, machine_num, item):
 
 #sends specific Keyence Program (branch) info to pre-load/prepare Keyence for Trigger(T1)
 def LoadKeyence(sock, item):
+    message = 'MR,%Busy\r\n' #initial read of '%BUSY' to ensure scan is actually taking place (%BUSY == 1)
+    sock.sendall(message.encode())
+    data = sock.recv(32)
+    print(f'%Busy = {data}')
+    # looping until '%BUSY' == 0, won't load Keyence with info until it's confirmed NOT busy
+    while(data != b'MR,+0000000000.000000\r'):
+        # utilizing 'with' to use thread lock
+        #message = 'T1\r\n'
+        message = 'MR,%Busy\r\n'
+        #with lock:
+        sock.sendall(message.encode())
+        data = sock.recv(32)
+        print('Pulling Keyence(Busy) for low...')
+        #print('Scanning...')
+        time.sleep(.2) # artificial 1ms pause between Keyence reads
+
     print('LOADING KEYENCE')
     message = item # setting 'TE,0' first
     #with lock:
@@ -430,11 +459,16 @@ def cycle(machine_num, sock, current_stage):
                     elif(results_dict['PART_PROGRAM'][1] == 10):
                         keyence_string = 'H406'
 
+                pun_str = intArray_to_str(results_dict['PUN'][1])
+
                 #load_to_trigger_start = datetime.datetime.now()
                 #TODO Send branch data to load Keyence for scan
                 print(f'({machine_num}) Loading: {keyence_string}')
                 LoadKeyence(sock,'MW,#PhoenixControlFaceBranch,' + str(results_dict['PART_PROGRAM'][1]) + '\r\n') #Keyence loading message, uses PART_PROGRAM from PLC to load specific branch
-                LoadKeyence(sock,'STW,0,"' + keyence_string + '\r\n') # PASSing external string to Keyence for file naming (?)
+                LoadKeyence(sock,'STW,0,"' + pun_str + '_' + keyence_string + '\r\n') # PASSing external string to Keyence for file naming (?)
+                LoadKeyence(sock,'OW,42,"' + keyence_string + '-ResultOutput.csv\r\n') # .csv file naming loads
+                LoadKeyence(sock,'OW,43,"' + keyence_string + '-10Largest.csv\r\n')
+                LoadKeyence(sock,'OW,44,"' + keyence_string + '-10Locations.csv\r\n')
                 print(f'({machine_num}) Keyence Loaded!\n')
 
                 PUN_display = results_dict['PUN'] # because I don't know how to print this with apostrophes around dict keys :D
@@ -465,6 +499,12 @@ def cycle(machine_num, sock, current_stage):
                 if(results_dict['START_PROGRAM'][1] == True):
                     plc.write('Program:CM080CA01.PorosityInspect.CAM0' + machine_num + '.I.READY', False)
                     print(f'({machine_num}) PLC(START_PROGRAM) went high! Time to trigger Keyence...\n')
+                    
+                    #Actual Keyence Trigger (T1) here***
+                    TriggerKeyence(sock, machine_num, 'T1\r\n')
+                    start_timer_T1_to_END_PROGRAM = datetime.datetime.now()
+                    #print('WAITING 2 SECONDS (TEST)')
+                    #time.sleep(2) #testing pause***
 
                     start_timer_Trigger_to_BUSY = datetime.datetime.now()
                     plc.write('Program:CM080CA01.PorosityInspect.CAM0' + machine_num + '.I.BUSY', True) #BUSY BEFORE KEYENCE TRIGGER TEST ***
@@ -472,12 +512,6 @@ def cycle(machine_num, sock, current_stage):
                     time_diff_BUSYWrite = (end_timer_BUSYWrite - start_timer_Trigger_to_BUSY)
                     execution_time = time_diff_BUSYWrite.total_seconds() * 1000
                     print(f'({machine_num}) Writing \'BUSY\' to PLC took: {execution_time} ms')
-                    
-                    #Actual Keyence Trigger (T1) here***
-                    TriggerKeyence(sock, machine_num, 'T1\r\n')
-                    start_timer_T1_to_END_PROGRAM = datetime.datetime.now()
-                    #print('WAITING 2 SECONDS (TEST)')
-                    #time.sleep(2) #testing pause***
                     
                     #plc.write('Program:CM080CA01.PorosityInspect.CAM0' + machine_num + '.I.BUSY', True) # BUSY goes HIGH while Keyence is scanning
                     #end_timer_Trigger_to_BUSY = datetime.datetime.now()
@@ -502,7 +536,8 @@ def cycle(machine_num, sock, current_stage):
                     plc.write('Program:CM080CA01.PorosityInspect.CAM0' + machine_num + '.I.BUSY', False)
 
                     #TODO PASS/FAIL RESULTS
-                    keyenceResults_to_PLC(sock, plc, machine_num, keyence_string)
+                    keyence_results = keyenceResults_to_PLC(sock, plc, machine_num, keyence_string) # sends Keyence result data to the PLC while simultaneously populating a local result list to write out into a .txt file
+                    create_csv(machine_num, results_dict, keyence_results, keyence_string) # creating result .csv (.txt) file
 
                     # Setting Chinmay's Keyence tag high
                     keyence_msg = 'MW,#PhoenixControlContinue,1\r\n'
@@ -601,7 +636,8 @@ def keyenceResults_to_PLC(sock, plc, machine_num, face_name):
         #'MR,#ReportLargestDefectSize\r\n',
         #'MR,#ReportLargestDefectZoneNumber\r\n',
         'MR,#ReportPass\r\n',
-        'MR,#ReportFail\r\n']
+        'MR,#ReportFail\r\n'
+        ]
     results = []
 
     # sending result messages to Keyence, then cleaning results to 'human-readable' list
@@ -614,7 +650,7 @@ def keyenceResults_to_PLC(sock, plc, machine_num, face_name):
         results.append(keyence_value)
 
     print(f'({machine_num}) {face_name} Keyence Results : {results}')
-    print(f'({machine_num}) WRITING ABOVE VALUES TO PLC IN 10 SECONDS!...')
+    #print(f'({machine_num}) WRITING ABOVE VALUES TO PLC IN 10 SECONDS!...')
     #time.sleep(10)
 
     # writing normalized Keyence results to proper PLC tags
@@ -628,6 +664,8 @@ def keyenceResults_to_PLC(sock, plc, machine_num, face_name):
     #print(f'({machine_num}) PASS = {results[3]} ; FAIL = {results[4]}')
     plc.write('Program:CM080CA01.PorosityInspect.CAM0' + machine_num + '.I.DONE', True)
     print(f'({machine_num}) Keyence Results written to PLC!')
+
+    return results
 
 #END keyenceResults_to_PLC
 
@@ -651,6 +689,32 @@ def KeyenceSwapCheck(sock,machine_num,program_num):
         LoadKeyence(sock,'PW,1,' + program_num + '\r\n') # ring seal is specific program
     pass
 #END KeyenceSwapCheck
+
+# George's request for a .csv file per inspection
+def create_csv(machine_num, results, keyence_results, face_name):
+    #E:\FTP\172.19.146.81\xg\result
+    file_name = '' #empty string for .csv file name
+    if(machine_num == '1'):
+        file_name = 'E:\\FTP\\172.19.147.82\\xg\\result'
+    elif(machine_num == '2'):
+        file_name = 'E:\\FTP\\172.19.148.83\\xg\\result'
+    file_name = file_name + '\\' + face_name + '.txt'
+    with open(file_name, 'w', newline='') as f:
+        f.write('PART_TYPE_2, ' + str(results['PART_TYPE'][1]) + '\n')
+        f.write('PART_PROGRAM_2, ' + str(results['PART_PROGRAM'][1]) + '\n')
+        f.write('PUN_2, ' + intArray_to_str(results['PUN'][1]) + '\n')
+        f.write('MODULE_2, ' + str(results['MODULE'][1]) + '\n')
+        f.write('MONTH_2, ' + str(results['TIMESTAMP_MONTH'][1]) + '\n')
+        f.write('DAY_2, ' + str(results['TIMESTAMP_DAY'][1]) + '\n')
+        f.write('YEAR_2, ' + str(results['TIMESTAMP_YEAR'][1]) + '\n')
+        f.write('HOUR_2, ' + str(results['TIMESTAMP_HOUR'][1]) + '\n')
+        f.write('MINUTE_2, ' + str(results['TIMESTAMP_MINUTE'][1]) + '\n')
+        f.write('SECOND_2, ' + str(results['TIMESTAMP_SECOND'][1]) + '\n')
+        f.write('PASS_2, ' + str(keyence_results[0]) + '\n')
+        f.write('FAIL_2, ' + str(keyence_results[1]) + '\n')
+
+    pass
+#END create_csv
 
 ### AFTER 'THE PASTE'
 
