@@ -463,7 +463,7 @@ def monitor_KeyenceNotRunning(sock, machine_num):
     pass
 #END monitor_KeyenceNotRunning
 
-# read defect information from the Keyence, then passes that as well as pass,fail,done to PLC
+# read defect information from the Keyence, then passes that as well as pass,fail,done to PLC, returns a list of result data for .txt file creation
 def keyenceResults_to_PLC(sock, plc, machine_num):
     #TODO read results from Keyence then pass to proper tags on PLC
     result_messages = ['MR,#ReportDefectCount\r\n', 'MR,#ReportLargestDefectSize\r\n', 'MR,#ReportLargestDefectZoneNumber\r\n', 'MR,#ReportPass\r\n', 'MR,#ReportFail\r\n']
