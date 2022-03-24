@@ -245,11 +245,12 @@ def TriggerKeyence(sock, machine_num, item):
 
 #sends specific Keyence Program (branch) info to pre-load/prepare Keyence for Trigger(T1)
 def LoadKeyence(sock, item, machine_num):
-    '''
+    #print(f'\n({machine_num}) LoadKeyence Started : {item} \n')
+    
     message = 'MR,%Busy\r\n' #initial read of '%BUSY' to ensure scan is actually taking place (%BUSY == 1)
     sock.sendall(message.encode())
     data = sock.recv(32)
-    print(f'%Busy = {data}\n')
+    #print(f'%Busy = {data}\n')
     # looping until '%BUSY' == 0, won't load Keyence with info until it's confirmed NOT busy
     while(data != b'MR,+0000000000.000000\r'):
         # utilizing 'with' to use thread lock
@@ -261,17 +262,18 @@ def LoadKeyence(sock, item, machine_num):
         print('Pulling Keyence(Busy) for low...')
         #print('Scanning...')
         time.sleep(.2) # artificial 1ms pause between Keyence reads
-    '''
-    message = 'MR\r\n' #initial read of '%BUSY' to ensure scan is actually taking place (%BUSY == 1)
-    sock.sendall(message.encode())
-    data = sock.recv(32) #clearing out Keyence dirty messages?
-    print(f'({machine_num}) LOADING KEYENCE {item} \n')
+    
+    #message = 'MR\r\n' #initial read of '%BUSY' to ensure scan is actually taking place (%BUSY == 1)
+    #sock.sendall(message.encode())
+    #data = sock.recv(32) #clearing out Keyence dirty messages?
+    #print(f'({machine_num}) LOADING KEYENCE {item} \n')
     message = item # setting 'TE,0' first
+    #print(f'({machine_num}) {message} \n')
     #with lock:
     sock.sendall(message.encode()) # sending TE,0
-    print(f'\n({machine_num}) \'{item}\' Sent!')
+    #print(f'\n({machine_num}) \'{item}\' Sent!')
     data = sock.recv(32)
-    print('received "%s"' % data)
+    #print(f'\n({machine_num}) received "%s"' % data)
 
 # sends 'TE,0' then 'TE,1' to the Keyence, resetting to original state (ready for new 'T1')
 def ExtKeyence(sock):
@@ -335,6 +337,8 @@ def cycle(machine_num, current_stage):
     is_paused = False
     global kill_threads
 
+    part_result = '' # string to hold result info per part, then log into a .txt once complete
+
     print(f'({machine_num}) Connecting to PLC...\n')
     with LogixDriver('120.123.230.39/0') as plc:
         print(f'({machine_num}) Connected to PLC')
@@ -350,7 +354,7 @@ def cycle(machine_num, current_stage):
                 if(kill_threads):
                     print(f'({machine_num}) kill_threads detected! Restarting threads...')
                     break
-                check_pause() # user pause if 'p' is pressed
+                #check_pause() # user pause if 'p' is pressed
 
                 #print(f'({machine_num}) Reading PLC\n')
                 results_dict = read_plc_dict(plc, machine_num) #initial PLC tag read for 'robot 14' values
@@ -395,7 +399,7 @@ def cycle(machine_num, current_stage):
                     print(f'({machine_num}) Stage 0 : Listening for PLC(LOAD_PROGRAM) = 1\n')
                     #reading PLC until LOAD_PROGRAM goes high
                     while(results_dict['LOAD_PROGRAM'][1] != True):
-                        check_pause() # user pause if 'p' is pressed
+                        #check_pause() # user pause if 'p' is pressed
                         results_dict = read_plc_dict(plc, machine_num) # continuous PLC read
                         if (results_dict['RESET'][1] == True):
                             RESET_check = plc.read('Program:CM080CA01.PorosityInspect.CAM0' + machine_num + '.O.RESET')
@@ -458,9 +462,11 @@ def cycle(machine_num, current_stage):
                             KeyenceSwapCheck(sock,machine_num,'2') # redundant?
                     elif(machine_num == '2'):
                         if(results_dict['PART_PROGRAM'][1] == 1):
-                            keyence_string = 'Case_Rear_Extension_1_Sealing_Face_Section_1'
+                            #keyence_string = 'Case_Rear_Extension_1_Sealing_Face_Section_1'
+                            keyence_string = 'Case_1_Sealing_Face_1'
                         elif(results_dict['PART_PROGRAM'][1] == 2):
-                            keyence_string = 'Case_Rear_Extension_1_Sealing_Face_Section_2'
+                            #keyence_string = 'Case_Rear_Extension_1_Sealing_Face_Section_2'
+                            keyence_string = 'Case_1_Sealing_Face_2'
                         elif(results_dict['PART_PROGRAM'][1] == 3):
                             keyence_string = 'Case_Rear_Extension_OD_Pilot_Section_1'
                         elif(results_dict['PART_PROGRAM'][1] == 4):
@@ -485,14 +491,15 @@ def cycle(machine_num, current_stage):
                     print(f'({machine_num}) Loading: {keyence_string}')
                     LoadKeyence(sock,'MW,#PhoenixControlFaceBranch,' + str(results_dict['PART_PROGRAM'][1]) + '\r\n', machine_num) #Keyence loading message, uses PART_PROGRAM from PLC to load specific branch
                     LoadKeyence(sock,'STW,0,"' + pun_str + '_' + keyence_string + '\r\n', machine_num) # PASSing external string to Keyence for file naming (?)
+                    #LoadKeyence(sock,'STW,0,"' + keyence_string + '\r\n', machine_num) # PASSing external string to Keyence for file naming (?)
                     LoadKeyence(sock,'OW,42,"' + keyence_string + '-ResultOutput.csv\r\n', machine_num) # .csv file naming loads
                     LoadKeyence(sock,'OW,43,"' + keyence_string + '-10Largest.csv\r\n', machine_num)
                     LoadKeyence(sock,'OW,44,"' + keyence_string + '-10Locations.csv\r\n', machine_num)
                     print(f'({machine_num}) Keyence Loaded!\n')
 
-                    PUN_display = results_dict['PUN'] # because I don't know how to print this with apostrophes around dict keys :D
+                    #PUN_display = results_dict['PUN'] # because I don't know how to print this with apostrophes around dict keys :D
                     # Printing PUN per Grob's request
-                    print(f'***\n({machine_num}) PUN : {PUN_display}***\n')
+                    #print(f'***\n({machine_num}) PUN : {PUN_display}***\n')
 
                     #TODO Actually Mirror Data (write back to PLC)
                     #print('!Mirroring Data!\n')
@@ -558,6 +565,9 @@ def cycle(machine_num, current_stage):
                         keyence_results = keyenceResults_to_PLC(sock, plc, machine_num, keyence_string) # sends Keyence result data to the PLC while simultaneously populating a local result list to write out into a .txt file
                         create_csv(machine_num, results_dict, keyence_results, keyence_string) # creating result .csv (.txt) file
 
+                        #check if we're ready to write out a parts results
+                        part_result = write_part_results(machine_num, part_result, results_dict, keyence_results) #appends to result string, writes out file and clears string if on final scan of part
+
                         # Setting Chinmay's Keyence tag high
                         keyence_msg = 'MW,#PhoenixControlContinue,1\r\n'
                         sock.sendall(keyence_msg.encode())
@@ -592,7 +602,7 @@ def cycle(machine_num, current_stage):
                         print(f'({machine_num}) Artificial Pause (1 seconds)...Then READY high')
                         time.sleep(1)
                         
-                        check_pause() # checking if user wants to pause
+                        #check_pause() # checking if user wants to pause
 
                     if(results_dict['END_PROGRAM'][1] == False and DONE_check[1] == False):
                         print(f'({machine_num}) PLC(END_PROGRAM) is low. Reseting PHOENIX to Stage 0\n')
@@ -652,7 +662,7 @@ def check_pause():
                     print('Unpause!')
                     time.sleep(5) #stops accidental toggle
                 time.sleep(1)
-#END check_pause
+#END #check_pause
 
 # pulses heartbeat tag every second, on independent thread(s) per machine
 def heartbeat(machine_num):
@@ -710,7 +720,7 @@ def keyenceResults_to_PLC(sock, plc, machine_num, face_name):
 
 # used to ensure the correct Keyence program is loaded for the part being processed (only applicable for machine#1 @ Grob)
 def KeyenceSwapCheck(sock,machine_num,program_num):
-    print(f'({machine_num}) Validating Keyence has proper program loaded...')
+    print(f'({machine_num}) Validating Keyence has proper program loaded...\n')
     msg = 'PR\r\n'
 
     #with lock:
@@ -755,7 +765,34 @@ def create_csv(machine_num, results, keyence_results, face_name):
     pass
 #END create_csv
 
-### AFTER 'THE PASTE'
+# Gerry's request to log all results per part in one continuous file
+def write_part_results(machine_num, part_result, results_dict, keyence_results):
+    if(machine_num == '1'):
+        if(results_dict['PART_PROGRAM'][1] == 4):
+            part_result = part_result + str(keyence_results[0]) # final append to string before writing out to .txt file
+            file_name = '' #empty string for .txt file name
+            file_name = 'E:\\part_results_consolidated\\machine_2.txt'
+            with open(file_name, 'a', newline='') as f:
+                f.write(str(datetime.datetime.now()) + '\n')
+                f.write(part_result + '\n\n')
+                part_result = ''
+                return part_result # clearing then returning pass result for next part
+        else:
+            part_result = part_result + str(keyence_results[0]) + ', ' # appending pass/fail data to part_result string if we're not @ end of the part
+            return part_result
+    elif(machine_num == '2'):
+        if(results_dict['PART_PROGRAM'][1] == 10):
+            part_result = part_result + str(keyence_results[0]) # final append to string before writing out to .txt file
+            file_name = '' #empty string for .txt file name
+            file_name = 'E:\\part_results_consolidated\\machine_3.txt'
+            with open(file_name, 'a', newline='') as f:
+                f.write(str(datetime.datetime.now()) + '\n')
+                f.write(part_result + '\n\n')
+                part_result = ''
+                return part_result # clearing then returning pass result for next part
+        else:
+            part_result = part_result + str(keyence_results[0]) + ', ' # appending pass/fail data to part_result string if we're not @ end of the part
+            return part_result
 
 #START main()
 def main():
