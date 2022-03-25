@@ -460,6 +460,12 @@ def cycle(machine_num, current_stage):
                         elif(results_dict['PART_PROGRAM'][1] == 4):
                             keyence_string = 'Case_Mounting_Face_Section_3'
                             KeyenceSwapCheck(sock,machine_num,'2') # redundant?
+                        elif(results_dict['PART_PROGRAM'][1] == 5):
+                            keyence_string = 'Oil_Cooler_Ports'
+                            KeyenceSwapCheck(sock,machine_num,'2') # redundant?
+                        elif(results_dict['PART_PROGRAM'][1] == 6):
+                            keyence_string = 'H311'
+                            KeyenceSwapCheck(sock,machine_num,'2') # redundant?
                     elif(machine_num == '2'):
                         if(results_dict['PART_PROGRAM'][1] == 1):
                             #keyence_string = 'Case_Rear_Extension_1_Sealing_Face_Section_1'
@@ -476,13 +482,15 @@ def cycle(machine_num, current_stage):
                         elif(results_dict['PART_PROGRAM'][1] == 6):
                             keyence_string = 'Shift_Cable_Holes'
                         elif(results_dict['PART_PROGRAM'][1] == 7):
-                            keyence_string = 'Oil_Cooler_Ports'
+                            keyence_string = 'Oil_Cooler_Ports' # plans are to remove this, moving to robot 1
                         elif(results_dict['PART_PROGRAM'][1] == 8):
                             keyence_string = 'H308'
                         elif(results_dict['PART_PROGRAM'][1] == 9):
                             keyence_string = 'H403'
                         elif(results_dict['PART_PROGRAM'][1] == 10):
                             keyence_string = 'H406'
+                        elif(results_dict['PART_PROGRAM'][1] == 11):
+                            keyence_string = 'H514_Corner'
 
                     pun_str = intArray_to_str(results_dict['PUN'][1])
 
