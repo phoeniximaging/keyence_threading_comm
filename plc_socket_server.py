@@ -36,28 +36,27 @@ for tag in arrayOutTags:
 
 #single-shot read of all 'arrayOutTags' off PLC
 def read_plc_dict(machine_num, plc):
-    with LogixDriver('120.57.42.114') as plc:
-        #print("read_plc_dict, generating list of read tags")
-        readList = []
-        for tag in arrayOutTags :
-            newTag = 'Program:HM1450_VS' + machine_num + '.VPC1.O.' + tag;
-            #print(newTag);
-            readList.append(newTag)
-            
-        resultsList = plc.read(*readList) # tag, value, type, error
-        readDict = {}
+    #print("read_plc_dict, generating list of read tags")
+    readList = []
+    for tag in arrayOutTags :
+        newTag = 'Program:HM1450_VS' + machine_num + '.VPC1.O.' + tag;
+        #print(newTag);
+        readList.append(newTag)
+        
+    resultsList = plc.read(*readList) # tag, value, type, error
+    readDict = {}
 
-        #print("returned results")
-        #print(resultsList)
+    #print("returned results")
+    #print(resultsList)
 
-        for tag in resultsList:
-            key = tag.tag.split(".")[-1]
-            #print(key)
-            #print(tag)
-            readDict[key] = tag[1]
+    for tag in resultsList:
+        key = tag.tag.split(".")[-1]
+        #print(key)
+        #print(tag)
+        readDict[key] = tag[1]
 
-        #print(readDict)
-        return readDict
+    #print(readDict)
+    return readDict
 #END read_plc_dict
 
 def start_server(host, port):
@@ -100,9 +99,11 @@ def main():
     t2.start()
 
     t1.join()
+    t2.join()
     pass
 
 #implicit 'main()' declaration
 if __name__ == '__main__':
     while(True):
         main()
+        print('Main Loop Disrupted, restarting servers...')
