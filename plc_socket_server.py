@@ -94,6 +94,7 @@ def main():
     t2.start()
 
     t1.join()
+    t2.join()
     pass
 
 #implicit 'main()' declaration
