@@ -619,16 +619,21 @@ def cycle(machine_num, current_stage):
         except Exception as e:
             if(str(e) == '[WinError 10054] An existing connection was forcibly closed by the remote host'):
                 print(f'({machine_num}) Keyence Connection Error, sending PhoenixFltCode : 1')
+                ''' Don't think these exist @ Grob yet(?)
                 plc.write(
-                    ('Program:HM1450_VS' + machine_num + '.VPC1.I.PhoenixFltCode', 1),
-                    ('Program:HM1450_VS' + machine_num + '.VPC1.I.Faulted', True)
+                    ('Program:BM650CA01.PorosityInspect.CAM0' + machine_num + '.I.PhoenixFltCode', 1),
+                    ('Program:BM650CA01.PorosityInspect.CAM0' + machine_num + '.I.Faulted', True)
                 )
+                '''
+
             if(str(e) == 'failed to receive reply'):
                 print(f'({machine_num}) Keyence Connection Error, sending PhoenixFltCode : 4')
+                '''
                 plc.write(
-                    ('Program:HM1450_VS' + machine_num + '.VPC1.I.PhoenixFltCode', 4),
-                    ('Program:HM1450_VS' + machine_num + '.VPC1.I.Faulted', True)
+                    ('Program:BM650CA01.PorosityInspect.CAM0' + machine_num + '.I.PhoenixFltCode', 4),
+                    ('Program:BM650CA01.PorosityInspect.CAM0' + machine_num + '.I.Faulted', True)
                 )
+                '''
             print(f'({machine_num}) Exception! {e}')
             kill_threads = True # global to stop/restart all threads
 
