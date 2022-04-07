@@ -21,6 +21,8 @@ import threading
 HOST = "127.0.0.1"  # Standard loopback interface address (localhost)
 PORT = 4000  # Port to listen on (non-privileged ports are > 1023)
 
+kill_threads = False
+
 # global variable declarations, some are probably unnecessary(?)
 arrayOutTags = [
     'LOAD_PROGRAM',
@@ -32,7 +34,7 @@ arrayOutTags = [
 
 tagKeys = []
 for tag in arrayOutTags:
-    tagKeys.append(tag.split("{")[0]) # delete trailiing { if it exists
+    tagKeys.append(tag.split("{")[0]) # delete trailing { if it exists
 
 #single-shot read of all 'arrayOutTags' off PLC
 def read_plc_dict(machine_num, plc):
@@ -54,7 +56,16 @@ def read_plc_dict(machine_num, plc):
     return readDict
 #END read_plc_dict
 
+def read_plc_tag(plc, tag):
+    read_plc = plc.read(tag)
+    read_plc_value = str(read_plc[1])
+    return read_plc_value
+#END read_plc_tag
+
+# starts up server(s), listens for requests, reads appropriate tags then returns results as serialized json string
 def start_server(host, port):
+    global kill_threads # thread health boolean, if 'True' time to end threads
+
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.bind((host, port))
         print(f'({host}):({port}) Alive and listening!\n')
@@ -62,39 +73,64 @@ def start_server(host, port):
         with LogixDriver('120.123.230.39/0') as plc:
             print(f'({host}):({port}) Connected to PLC!\n')
             while True:
-                s.listen()
-                conn, addr = s.accept()
-                with conn:
-                    print(f"({host}):({port}) Connected by {addr}\n")
-                    while True:
-                        data = conn.recv(1024)
-                        if not data:
-                            break
-                        #print(f'{type(data)}')
-                        #conn.sendall(data)
-                        #test_obj = {"key": "value"}
-                        #test_obj_json = json.dumps(test_obj)
-                        plc_result = {}
-                        if(port == 4000):
-                            plc_result = read_plc_dict('1', plc)
-                        elif(port == 4001):
-                            plc_result = read_plc_dict('2', plc)
-                        else:
-                            print('Invalid Server Port! Should be : 4000 or 4001')
-                        plc_result_json = json.dumps(plc_result)
-                        conn.sendall(plc_result_json.encode())
+                try:
+                    if(kill_threads == True):
+                        print(f'({host}):({port}) Thread(s) disrupted, restarting...')
+                        break
+                    s.listen()
+                    conn, addr = s.accept()
+                    with conn:
+                        print(f"({host}):({port}) Connected by {addr}\n")
+                        while True:
+                            data = conn.recv(1024)
+                            if not data:
+                                break
+                            plc_result = {}
+
+                            data_txt = data.decode("utf-8")
+                        
+                            #cleaning message, data_cmd will be 'r' or 'w', data_tag will be '<full_tag_name>'
+                            data_list = []
+                            data_list = data_txt.split(',')
+                            data_list_cmd = data_list[0].split(' ')
+                            data_cmd = data_list_cmd[1]
+                            data_list_tag = data_list[1].split(' ')
+                            data_tag = data_list_tag[2]
+                            data_tag = data_tag.strip('}')
+
+                            response_string = '{ok' #beginning of response for either read or write request
+
+                            if(port == 4000):
+                                #plc_result = read_plc_dict('1', plc)
+                                if(data_cmd == 'r'):
+                                    plc_value = read_plc_tag(plc, tag)
+                                    response_string = response_string + ', ' + plc_value + '}\n'
+                            elif(port == 4001):
+                                plc_result = read_plc_dict('2', plc)
+                            else:
+                                print('Invalid Server Port! Should be : 4000 or 4001')
+                            #plc_result_json = json.dumps(plc_result) # result into serialized json
+                            #conn.sendall(plc_result_json.encode()) # responds with encoded serialized json string
+                            print(response_string)
+                            conn.sendall(response_string.encode())
+                            #print(f'({host}):({port}) Sent Booleans to {addr}')
+                except Exception as e:
+                    print(f'({host}):({port}) Exception : {str(e)}')
+                    kill_threads = True
 
 def main():
+    global kill_threads
     # Thread declaration / initialization
     t1 = threading.Thread(target=start_server, args=["127.0.0.1", 4000])
     t2 = threading.Thread(target=start_server, args=["127.0.0.1", 4001])
     #start_server(HOST, PORT)
 
+    kill_threads = False
     t1.start()
     t2.start()
 
     t1.join()
-    t2.join()
+    t2.join() # join both threads, useful for try/except restarting and preventing continous 'main()' calls
     pass
 
 #implicit 'main()' declaration

@@ -574,7 +574,7 @@ def cycle(machine_num, current_stage):
                         create_csv(machine_num, results_dict, keyence_results, keyence_string) # creating result .csv (.txt) file
 
                         #check if we're ready to write out a parts results
-                        part_result = write_part_results(machine_num, part_result, results_dict, keyence_results) #appends to result string, writes out file and clears string if on final scan of part
+                        part_result = write_part_results(machine_num, part_result, results_dict, keyence_results, pun_str) #appends to result string, writes out file and clears string if on final scan of part
 
                         # Setting Chinmay's Keyence tag high
                         keyence_msg = 'MW,#PhoenixControlContinue,1\r\n'
@@ -627,14 +627,14 @@ def cycle(machine_num, current_stage):
             if(str(e) == '[WinError 10054] An existing connection was forcibly closed by the remote host'):
                 print(f'({machine_num}) Keyence Connection Error, sending PhoenixFltCode : 1')
                 plc.write(
-                    ('Program:HM1450_VS' + machine_num + '.VPC1.I.PhoenixFltCode', 1),
-                    ('Program:HM1450_VS' + machine_num + '.VPC1.I.Faulted', True)
+                    ('Program:CM080CA01.PorosityInspect.CAM0' + machine_num + '.I.PhoenixFltCode', 1),
+                    ('Program:CM080CA01.PorosityInspect.CAM0' + machine_num + '.I.Faulted', True)
                 )
             if(str(e) == 'failed to receive reply'):
                 print(f'({machine_num}) Keyence Connection Error, sending PhoenixFltCode : 4')
                 plc.write(
-                    ('Program:HM1450_VS' + machine_num + '.VPC1.I.PhoenixFltCode', 4),
-                    ('Program:HM1450_VS' + machine_num + '.VPC1.I.Faulted', True)
+                    ('Program:CM080CA01.PorosityInspect.CAM0' + machine_num + '.I.PhoenixFltCode', 4),
+                    ('Program:CM080CA01.PorosityInspect.CAM0' + machine_num + '.I.Faulted', True)
                 )
             print(f'({machine_num}) Exception! {e}')
             kill_threads = True # global to stop/restart all threads
@@ -774,14 +774,16 @@ def create_csv(machine_num, results, keyence_results, face_name):
 #END create_csv
 
 # Gerry's request to log all results per part in one continuous file
-def write_part_results(machine_num, part_result, results_dict, keyence_results):
+## now wants new folder each day -_-
+def write_part_results(machine_num, part_result, results_dict, keyence_results, pun_str):
     if(machine_num == '1'):
-        if(results_dict['PART_PROGRAM'][1] == 4):
+        if(results_dict['PART_PROGRAM'][1] == 6):
             part_result = part_result + str(keyence_results[0]) # final append to string before writing out to .txt file
             file_name = '' #empty string for .txt file name
             file_name = 'E:\\part_results_consolidated\\machine_2.txt'
             with open(file_name, 'a', newline='') as f:
-                f.write(str(datetime.datetime.now()) + '\n')
+                f.write(str(datetime.datetime.now()) + ', ')
+                f.write(pun_str + ', ')
                 f.write(part_result + '\n\n')
                 part_result = ''
                 return part_result # clearing then returning pass result for next part
@@ -794,7 +796,8 @@ def write_part_results(machine_num, part_result, results_dict, keyence_results):
             file_name = '' #empty string for .txt file name
             file_name = 'E:\\part_results_consolidated\\machine_3.txt'
             with open(file_name, 'a', newline='') as f:
-                f.write(str(datetime.datetime.now()) + '\n')
+                f.write(str(datetime.datetime.now()) + ', ')
+                f.write(pun_str + ', ')
                 f.write(part_result + '\n\n')
                 part_result = ''
                 return part_result # clearing then returning pass result for next part
