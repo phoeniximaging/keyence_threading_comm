@@ -3,6 +3,7 @@ from logging import debug
 from pycomm3 import LogixDriver
 from pycomm3.cip.data_types import DINT, UINT
 import time
+import datetime
 
 #example of just the function to read PLC tags and populate into a dict
 ## only calling booleans in 'arrayOutTags'
@@ -129,16 +130,25 @@ changed_flag = False
 
 with LogixDriver('120.57.42.114') as plc:
     while True:
-        results_dict = read_plc_dict('14', plc)
-        #print(results_dict)
-        
+        results_dict = read_plc_dict('15', plc)
+        print(f'{datetime.datetime.now()} : {results_dict}')
+        if(results_dict['LoadProgram'] == True
+        or results_dict['StartProgram'] == True
+        or results_dict['EndProgram'] == True
+        or results_dict['AbortProgram'] == True
+        or results_dict['Reset'] == True):
+            print('Tag went TRUE, breaking...')
+            break
+        time.sleep(.03)
+
+        '''
         if((results_dict['LoadProgram'] == True) and (changed_flag == False)):
             print('(14) LoadProgram went HIGH!')
             changed_flag = True
         if((results_dict['LoadProgram'] == False) and (changed_flag == True)):
             print('(14) LoadProgram went LOW!')
             changed_flag = False
-        
+        '''
 
 print(results_dict)
 

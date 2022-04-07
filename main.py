@@ -32,6 +32,10 @@ start_timer_END = datetime.datetime.now()
 
 kill_threads = False # global boolean to stop both threads on error
 
+endProgram_latch_14 = False
+abort_latch_14 = False
+reset_latch_14 = False
+
 # global variable declarations, some are probably unnecessary(?)
 arrayOutTags = [
     'LoadProgram',
@@ -484,7 +488,7 @@ def keyenceResults_to_PLC(sock, plc, machine_num):
         ('Program:HM1450_VS' + machine_num + '.VPC1.I.Defect_Size', results[1]),
         ('Program:HM1450_VS' + machine_num + '.VPC1.I.DefectZone', results[2]),
         ('Program:HM1450_VS' + machine_num + '.VPC1.I.Pass', results[3]),
-        ('Program:HM1450_VS' + machine_num + '.VPC1.I.Fail', results[4]),
+        ('Program:HM1450_VS' + machine_num + '.VPC1.I.Fail', results[4])
     )
     #print(f'({machine_num}) Pass = {results[3]} ; Fail = {results[4]}')
     plc.write('Program:HM1450_VS' + machine_num + '.VPC1.I.Done', True)
@@ -498,6 +502,13 @@ def cycle(machine_num, current_stage):
     global start_timer #testing
     is_paused = False
     global kill_threads
+    global endProgram_latch_14
+    global abort_latch_14
+    global reset_latch_14
+
+    part_result = '' # for .csv logging
+
+    scan_duration = 0 # keeping track of scan time in MS
 
     #print(f'({machine_num}) Connecting to PLC\n')
     with LogixDriver('120.57.42.114') as plc:
@@ -542,6 +553,30 @@ def cycle(machine_num, current_stage):
                         ('Program:HM1450_VS' + machine_num + '.VPC1.I.PhoenixFltCode', 0),
                         ('Program:HM1450_VS' + machine_num + '.VPC1.I.KeyenceFltCode', 0)
                     )
+
+                #checking rising/falling edge logic of .O booleans
+                #if((machine_num == '14') and results_dict['LoadProgram'][1] == False):
+                    #print('(14) LOAD went LOW!')
+                #if((machine_num == '14') and results_dict['StartProgram'][1] == True):
+                    #print('(14) StartProgram went HIGH!')
+                if((machine_num == '14') and results_dict['EndProgram'][1] == True and endProgram_latch_14 == False):
+                    #print('(14) EndProgram went HIGH!')
+                    endProgram_latch_14 = True
+                elif((machine_num == '14') and results_dict['EndProgram'][1] == False and endProgram_latch_14 == True):
+                    #print('(14) EndProgram went LOW!')
+                    endProgram_latch_14 = False
+                if((machine_num == '14') and results_dict['AbortProgram'][1] == True and abort_latch_14 == False):
+                    print('(14) AbortProgram went HIGH!')
+                    abort_latch_14 = True
+                elif((machine_num == '14') and results_dict['AbortProgram'][1] == False and abort_latch_14 == True):
+                    print('(14) AbortProgram went LOW!')
+                    abort_latch_14 = False
+                if((machine_num == '14') and results_dict['Reset'][1] == True and reset_latch_14 == False):
+                    print('(14) Reset went HIGH!')
+                    reset_latch_14 = True
+                elif((machine_num == '14') and results_dict['Reset'][1] == False and reset_latch_14 == True):
+                    print('(14) Reset went LOW!')
+                    reset_latch_14 = False
 
                 #STAGE0 CHECK HERE
                 if(current_stage == 0):
@@ -651,6 +686,8 @@ def cycle(machine_num, current_stage):
                         elif(results_dict['PartProgram'][1] == 12):
                             keyence_string = 'RearFace-45T3'
 
+                    pun_str = intArray_to_str(results_dict['PUN'][1])
+
                     datetime_info_len_check = [str(results_dict['Month'][1]), str(results_dict['Day'][1]), str(results_dict['Hour'][1]), str(results_dict['Minute'][1]), str(results_dict['Second'][1])]
 
                     #confirming all date/time fields are 2 digits (except year)
@@ -693,7 +730,7 @@ def cycle(machine_num, current_stage):
                         start_timer_Trigger_to_Busy = datetime.datetime.now()
                         #Actual Keyence Trigger (T1) here***
                         TriggerKeyence(sock, machine_num, 'T1\r\n')
-                        print(f'({machine_num}) **************Keyence Triggered!*****************\n')
+                        #print(f'({machine_num}) **************Keyence Triggered!*****************\n')
                         start_timer_T1_to_EndProgram = datetime.datetime.now()
                         time_diff = (start_timer_T1_to_EndProgram - start_timer_Trigger_to_Busy)
                         execution_time = time_diff.total_seconds() * 1000
@@ -718,12 +755,13 @@ def cycle(machine_num, current_stage):
                         #end_timer_Trigger_to_Busy = datetime.datetime.now()
                         diff_timer_Trigger_to_Busy = (end_timer_BusyWrite - start_timer_Trigger_to_Busy)
                         execution_time = diff_timer_Trigger_to_Busy.total_seconds() * 1000
-                        print(f'({machine_num}) TriggerKeyence to PLC(Busy) high in: {execution_time} ms')
+                        #print(f'({machine_num}) TriggerKeyence to PLC(Busy) high in: {execution_time} ms')
 
                         monitor_endScan(plc, machine_num, sock) # ends Keyence with EndScan
                         end_timer_T1_to_EndScan = datetime.datetime.now()
                         diff_timer_T1_to_EndScan = (end_timer_T1_to_EndScan - start_timer_T1_to_EndProgram)
                         execution_time = diff_timer_T1_to_EndScan.total_seconds() * 1000
+                        scan_duration = execution_time #for logging in .csv
                         #print(f'({machine_num}) TriggerKeyence to PLC(EndScan) high in: {execution_time} ms') # log these in .csv? include PUN and Face if applicable
 
                         #BUSY HIGH TEST*
@@ -737,7 +775,7 @@ def cycle(machine_num, current_stage):
                         keyence_result_check_end = datetime.datetime.now()
                         time_diff = (keyence_result_check_end - keyence_result_check_start)
                         execution_time = time_diff.total_seconds() * 1000
-                        print(f'({machine_num}) KeyenceNotRunning verified in : {execution_time} ms')
+                        #print(f'({machine_num}) KeyenceNotRunning verified in : {execution_time} ms')
                         if(execution_time > 3000):
                             print(f'({machine_num}) KeyenceNotRunning timeout (took longer than 3 seconds)! PhoenixFltCode : 3')
                             plc.write(
@@ -754,7 +792,10 @@ def cycle(machine_num, current_stage):
                         keyence_results = []
                         keyence_results = keyenceResults_to_PLC(sock, plc, machine_num)
 
-                        create_csv(machine_num, results_dict, keyence_results, keyence_string) # results to .csv
+                        create_csv(machine_num, results_dict, keyence_results, keyence_string, scan_duration) # results to .csv, PER SCAN
+
+                        #check if we're ready to write out a parts results, PER PART
+                        part_result = write_part_results(machine_num, part_result, results_dict, keyence_results, pun_str) #appends to result string, writes out file and clears string if on final scan of part
 
                         # Setting Chinmay's Keyence tag high
                         keyence_msg = 'MW,#PhoenixControlContinue,1\r\n'
@@ -854,7 +895,7 @@ def check_pause(machine_num):
 #sets PLC(Heartbeat) high every second to verify we're still running and communicating
 def heartbeat(machine_num):
     with LogixDriver('120.57.42.114') as plc:
-        print(f'({machine_num}) Heartbeat thread connected to PLC. Writing \'Heartbeat\' high every 1 second')
+        print(f'({machine_num}) Heartbeat thread connected to PLC. Writing \'Heartbeat\' high every 1 second\n')
         while(True):
             plc.write('Program:HM1450_VS' + machine_num + '.VPC1.I.Heartbeat', True)
             #print(f'({machine_num}) Heartbeat written HIGH')
@@ -865,7 +906,7 @@ def heartbeat(machine_num):
 #END heartbeat
 
 # George's request for a .csv file per inspection
-def create_csv(machine_num, results, keyence_results, face_name):
+def create_csv(machine_num, results, keyence_results, face_name, duration):
     #E:\FTP\172.19.146.81\xg\result
     file_name = '' #empty string for .csv file name
     if(machine_num == '14'):
@@ -906,9 +947,52 @@ def create_csv(machine_num, results, keyence_results, face_name):
         f.write('Defect_Zone_2, ' + str(keyence_results[2]) + '\n')
         f.write('PASS_2, ' + str(keyence_results[3]) + '\n')
         f.write('FAIL_2, ' + str(keyence_results[4]) + '\n')
+        f.write('DURATION_2, ' + str(duration) + '\n')
 
     pass
 #END create_csv
+
+# Gerry's request to log all results per part in one continuous file
+def write_part_results(machine_num, part_result, results_dict, keyence_results, pun_str):
+    #print(f'({machine_num}) part_result : {part_result}\n')
+    #print(f'({machine_num}) keyence_results : {keyence_results}\n')
+    pun_str = pun_str.strip() # remove spaces
+    pun_str = pun_str.rstrip('\\x00') # remove nulls
+
+    if(machine_num == '14'):
+        # designating end of part by part #, to write out actual line in .csv
+        if((results_dict['PartProgram'][1] == 3) or (results_dict['PartProgram'][1] == 7) or (results_dict['PartProgram'][1] == 11)):
+            part_result = part_result + str(keyence_results[3]) # final append to string before writing out to .txt file
+            file_name = '' #empty string for .txt file name
+            file_name = 'E:\\part_results_consolidated\\machine_14.txt'
+            with open(file_name, 'a', newline='') as f:
+                t = datetime.datetime.now()
+                s = t.strftime('%Y-%m-%d %H:%M:%S.%f') # stripping off decimal (ms)
+                f.write(s[:-4] + ', ')
+                f.write(pun_str + ', ')
+                f.write(part_result + '\n\n')
+                print(f'({machine_num}) (WROTE) part_result : {part_result}')
+                part_result = ''
+                return part_result # clearing then returning pass result for next part
+        else:
+            part_result = part_result + str(keyence_results[3]) + ', ' # appending pass/fail data to part_result string if we're not @ end of the part
+            return part_result
+    elif(machine_num == '15'):
+        if((results_dict['PartProgram'][1] % 4) == 0):
+            part_result = part_result + str(keyence_results[3]) # final append to string before writing out to .txt file
+            file_name = '' #empty string for .txt file name
+            file_name = 'E:\\part_results_consolidated\\machine_15.txt'
+            with open(file_name, 'a', newline='') as f:
+                t = datetime.datetime.now()
+                s = t.strftime('%Y-%m-%d %H:%M:%S.%f') # stripping off decimal (ms)
+                f.write(s[:-4] + ', ')
+                f.write(pun_str + ', ')
+                f.write(part_result + '\n\n')
+                part_result = ''
+                return part_result # clearing then returning pass result for next part
+        else:
+            part_result = part_result + str(keyence_results[3]) + ', ' # appending pass/fail data to part_result string if we're not @ end of the part
+            return part_result
 
 #START main()
 def main():
