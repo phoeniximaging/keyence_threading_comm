@@ -381,7 +381,7 @@ def cycle(machine_num, current_stage):
 
                 #STAGE0 CHECK HERE
                 if(current_stage == 0):
-                    print(f'({machine_num}) Setting Boolean Flags to Stage 0\n')
+                    #print(f'({machine_num}) Setting Boolean Flags to Stage 0\n')
                     
                     plc.write(
                         ('Program:CM080CA01.PorosityInspect.CAM0' + machine_num + '.I.BUSY', False),
@@ -393,10 +393,10 @@ def cycle(machine_num, current_stage):
                     #write_plc_flush(plc,machine_num) # defaults all .I Phoenix tags at start of cycle
                     plc.write('Program:CM080CA01.PorosityInspect.CAM0' + machine_num + '.I.READY', True)
 
-                    print(f'({machine_num}) Flushing PLC data (Stage 0)')
+                    #print(f'({machine_num}) Flushing PLC data (Stage 0)')
                     write_plc_flush(plc,machine_num)
                     
-                    print(f'({machine_num}) Stage 0 : Listening for PLC(LOAD_PROGRAM) = 1\n')
+                    #print(f'({machine_num}) Stage 0 : Listening for PLC(LOAD_PROGRAM) = 1\n')
                     #reading PLC until LOAD_PROGRAM goes high
                     while(results_dict['LOAD_PROGRAM'][1] != True):
                         #check_pause() # user pause if 'p' is pressed
@@ -424,7 +424,7 @@ def cycle(machine_num, current_stage):
                     #print('PLC(LOAD_PROGRAM) went high!\n')
                     # Once PLC(LOAD_PROGRAM) goes high, mirror data and set Phoenix(READY) high, signifies end of "loading" process
                     plc.write('Program:CM080CA01.PorosityInspect.CAM0' + machine_num + '.I.READY', False)
-                    print(f'({machine_num}) Dropping Phoenix(READY) low.\n')
+                    #print(f'({machine_num}) Dropping Phoenix(READY) low.\n')
 
                     ''' PART_PROGRAM mapping
                     # 1A (?), is this a string?!
@@ -503,7 +503,7 @@ def cycle(machine_num, current_stage):
                     LoadKeyence(sock,'OW,42,"' + keyence_string + '-ResultOutput.csv\r\n', machine_num) # .csv file naming loads
                     LoadKeyence(sock,'OW,43,"' + keyence_string + '-10Largest.csv\r\n', machine_num)
                     LoadKeyence(sock,'OW,44,"' + keyence_string + '-10Locations.csv\r\n', machine_num)
-                    print(f'({machine_num}) Keyence Loaded!\n')
+                    #print(f'({machine_num}) Keyence Loaded!\n')
 
                     #PUN_display = results_dict['PUN'] # because I don't know how to print this with apostrophes around dict keys :D
                     # Printing PUN per Grob's request
@@ -519,11 +519,11 @@ def cycle(machine_num, current_stage):
 
                     #csv_results['DATA'] = csv_results_plc['DATA']
                     #time.sleep(1) # FINAL SLEEP REMOVAL #artificial pause to see step happening in testing
-                    print(f'({machine_num}) Data Mirrored, Setting \'READY\' high\n')
+                    #print(f'({machine_num}) Data Mirrored, Setting \'READY\' high\n')
                     plc.write('Program:CM080CA01.PorosityInspect.CAM0' + machine_num + '.I.READY', True)
                     #time.sleep(3) # FINAL SLEEP REMOVAL
                     current_stage += 1 #incrementing out of STAGE0
-                    print(f'({machine_num}) Stage 1!\nListening for PLC(START_PROGRAM) = 1\n')
+                    #print(f'({machine_num}) Stage 1!\nListening for PLC(START_PROGRAM) = 1\n')
                 #END STAGE0
                 #START STAGE1 : START/END Program
                 elif(current_stage == 1):
@@ -532,7 +532,7 @@ def cycle(machine_num, current_stage):
                     #if(start_check[1] == True):
                     if(results_dict['START_PROGRAM'][1] == True):
                         plc.write('Program:CM080CA01.PorosityInspect.CAM0' + machine_num + '.I.READY', False)
-                        print(f'({machine_num}) PLC(START_PROGRAM) went high! Time to trigger Keyence...\n')
+                        #print(f'({machine_num}) PLC(START_PROGRAM) went high! Time to trigger Keyence...\n')
                         
                         #Actual Keyence Trigger (T1) here***
                         TriggerKeyence(sock, machine_num, 'T1\r\n')
@@ -545,13 +545,13 @@ def cycle(machine_num, current_stage):
                         end_timer_BUSYWrite = datetime.datetime.now()
                         time_diff_BUSYWrite = (end_timer_BUSYWrite - start_timer_Trigger_to_BUSY)
                         execution_time = time_diff_BUSYWrite.total_seconds() * 1000
-                        print(f'({machine_num}) Writing \'BUSY\' to PLC took: {execution_time} ms')
+                        #print(f'({machine_num}) Writing \'BUSY\' to PLC took: {execution_time} ms')
                         
                         #plc.write('Program:CM080CA01.PorosityInspect.CAM0' + machine_num + '.I.BUSY', True) # BUSY goes HIGH while Keyence is scanning
                         #end_timer_Trigger_to_BUSY = datetime.datetime.now()
                         diff_timer_Trigger_to_BUSY = (start_timer_T1_to_END_PROGRAM - start_timer_Trigger_to_BUSY)
                         execution_time = diff_timer_Trigger_to_BUSY.total_seconds() * 1000
-                        print(f'({machine_num}) PLC(BUSY) high to TriggerKeyence in: {execution_time} ms')
+                        #print(f'({machine_num}) PLC(BUSY) high to TriggerKeyence in: {execution_time} ms')
 
                         #if(results_dict['PART_PROGRAM'][1] != 1):
                             #print(f'({machine_num}) PART_PROGRAM : ' + str(results_dict['PART_PROGRAM'][1]))
@@ -561,28 +561,31 @@ def cycle(machine_num, current_stage):
                         end_timer_T1_to_END_SCAN = datetime.datetime.now()
                         diff_timer_T1_to_END_SCAN = (end_timer_T1_to_END_SCAN - start_timer_T1_to_END_PROGRAM)
                         execution_time = diff_timer_T1_to_END_SCAN.total_seconds() * 1000
-                        print(f'({machine_num}) TriggerKeyence to PLC(END_SCAN) high in: {execution_time} ms')
+                        #print(f'({machine_num}) TriggerKeyence to PLC(END_SCAN) high in: {execution_time} ms')
 
                         monitor_KeyenceNotRunning(sock, machine_num) # verify Keyence has processed results and written out FTP files
 
                         #BUSY HIGH TEST*
-                        print(f'({machine_num}) Scan ended! PHOENIX(BUSY) is low\n')
+                        #print(f'({machine_num}) Scan ended! PHOENIX(BUSY) is low\n')
                         plc.write('Program:CM080CA01.PorosityInspect.CAM0' + machine_num + '.I.BUSY', False)
 
                         #TODO PASS/FAIL RESULTS
                         keyence_results = keyenceResults_to_PLC(sock, plc, machine_num, keyence_string) # sends Keyence result data to the PLC while simultaneously populating a local result list to write out into a .txt file
                         create_csv(machine_num, results_dict, keyence_results, keyence_string) # creating result .csv (.txt) file
 
+                        part_program_display = results_dict['PART_PROGRAM']
+                        #print(f'({machine_num}) RESULTS : {keyence_string} ({part_program_display}) : {keyence_results[0]}')
+
                         #check if we're ready to write out a parts results
-                        part_result = write_part_results(machine_num, part_result, results_dict, keyence_results, pun_str) #appends to result string, writes out file and clears string if on final scan of part
+                        part_result = write_part_results(machine_num, part_result, results_dict, keyence_results, pun_str, keyence_string) #appends to result string, writes out file and clears string if on final scan of part
 
                         # Setting Chinmay's Keyence tag high
                         keyence_msg = 'MW,#PhoenixControlContinue,1\r\n'
                         sock.sendall(keyence_msg.encode())
-                        print(f'({machine_num}) Sent \'#PhoenixControlContinue,1\' to Keyence!')
+                        #print(f'({machine_num}) Sent \'#PhoenixControlContinue,1\' to Keyence!')
                         data = sock.recv(32) #obligatory Keyence read to keep buffer clear
 
-                        print(f'({machine_num}) Stage 1 Complete!\n')
+                        #print(f'({machine_num}) Stage 1 Complete!\n')
                         current_stage += 1
                         #time.sleep(1) # FINAL SLEEP REMOVAL
                     
@@ -596,7 +599,7 @@ def cycle(machine_num, current_stage):
                         execution_time = diff_timer_T1_to_END_PROGRAM.total_seconds() * 1000
                         #print(f'({machine_num}) TriggerKeyence to PLC(END_PROGRAM) high in: {execution_time} ms')
 
-                        print(f'({machine_num}) PLC(END_PROGRAM) is high. Dropping PHOENIX(DONE) low\n')
+                        #print(f'({machine_num}) PLC(END_PROGRAM) is high. Dropping PHOENIX(DONE) low\n')
                         plc.write(
                             ('Program:CM080CA01.PorosityInspect.CAM0' + machine_num + '.I.BUSY', False),
                             ('Program:CM080CA01.PorosityInspect.CAM0' + machine_num + '.I.PASS', False),
@@ -604,10 +607,10 @@ def cycle(machine_num, current_stage):
                         )
                         plc.write('Program:CM080CA01.PorosityInspect.CAM0' + machine_num + '.I.DONE', False)
 
-                        print(f'({machine_num}) Flushing PLC(Result) tag data...\n')
+                        #print(f'({machine_num}) Flushing PLC(Result) tag data...\n')
                         write_plc_flush(plc,machine_num) # defaults all .I Phoenix tags at start of cycle
 
-                        print(f'({machine_num}) Artificial Pause (1 seconds)...Then READY high')
+                        #print(f'({machine_num}) Artificial Pause (1 seconds)...Then READY high')
                         time.sleep(1)
                         
                         #check_pause() # checking if user wants to pause
@@ -775,10 +778,10 @@ def create_csv(machine_num, results, keyence_results, face_name):
 
 # Gerry's request to log all results per part in one continuous file
 ## now wants new folder each day -_-
-def write_part_results(machine_num, part_result, results_dict, keyence_results, pun_str):
+def write_part_results(machine_num, part_result, results_dict, keyence_results, pun_str, cover_name):
     if(machine_num == '1'):
         if(results_dict['PART_PROGRAM'][1] == 6):
-            part_result = part_result + str(keyence_results[0]) # final append to string before writing out to .txt file
+            part_result = part_result + cover_name + ' : ' + str(keyence_results[0]) # final append to string before writing out to .txt file
             file_name = '' #empty string for .txt file name
             file_name = 'E:\\part_results_consolidated\\machine_2.txt'
             with open(file_name, 'a', newline='') as f:
@@ -788,11 +791,11 @@ def write_part_results(machine_num, part_result, results_dict, keyence_results, 
                 part_result = ''
                 return part_result # clearing then returning pass result for next part
         else:
-            part_result = part_result + str(keyence_results[0]) + ', ' # appending pass/fail data to part_result string if we're not @ end of the part
+            part_result = part_result + cover_name + ' : ' + str(keyence_results[0]) + ', ' # appending pass/fail data to part_result string if we're not @ end of the part
             return part_result
     elif(machine_num == '2'):
         if(results_dict['PART_PROGRAM'][1] == 10):
-            part_result = part_result + str(keyence_results[0]) # final append to string before writing out to .txt file
+            part_result = part_result + cover_name + ' : ' + str(keyence_results[0]) # final append to string before writing out to .txt file
             file_name = '' #empty string for .txt file name
             file_name = 'E:\\part_results_consolidated\\machine_3.txt'
             with open(file_name, 'a', newline='') as f:
@@ -802,7 +805,7 @@ def write_part_results(machine_num, part_result, results_dict, keyence_results, 
                 part_result = ''
                 return part_result # clearing then returning pass result for next part
         else:
-            part_result = part_result + str(keyence_results[0]) + ', ' # appending pass/fail data to part_result string if we're not @ end of the part
+            part_result = part_result + cover_name + ' : ' + str(keyence_results[0]) + ', ' # appending pass/fail data to part_result string if we're not @ end of the part
             return part_result
 
 #START main()
