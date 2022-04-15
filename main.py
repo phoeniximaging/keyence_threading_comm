@@ -150,7 +150,7 @@ def write_plc(plc, machine_num, results):
     end_time = datetime.datetime.now()
     time_diff = (end_time - start_time)
     execution_time = time_diff.total_seconds() * 1000
-    print('\'plc.write()\' took %d ms to run' % (execution_time))
+    #print('\'plc.write()\' took %d ms to run' % (execution_time))
     #print("Finished writing PLC...")
     pass
 #END write_plc
@@ -187,7 +187,7 @@ def TriggerKeyence(sock, machine_num, item):
     message = 'MR,%Trg1Ready\r\n' #initial read of '%BUSY' to ensure scan is actually taking place (%BUSY == 1)
     sock.sendall(message.encode())
     data = sock.recv(32)
-    print(f'({machine_num}) %Trg1Ready = {data}')
+    #print(f'({machine_num}) %Trg1Ready = {data}')
 
     # looping until '%BUSY' == 0
     while(data != b'MR,+0000000001.000000\r'):
@@ -218,7 +218,7 @@ def TriggerKeyence(sock, machine_num, item):
     message = 'MR,%Trg1Ready\r\n' #initial read of '%BUSY' to ensure scan is actually taking place (%BUSY == 1)
     sock.sendall(message.encode())
     data = sock.recv(32)
-    print(f'%Trg1Ready = {data}')
+    #print(f'({machine_num}) %Trg1Ready = {data}')
     
     '''
     if(execution_time > longest_time):
@@ -295,7 +295,7 @@ def ExtKeyence(sock):
 
 # reading PLC(END_SCAN) until it goes high to interrupt current Keyence scan
 def monitor_END_SCAN(plc, machine_num, sock):
-    print(f'({machine_num}) Listening for PLC(END_SCAN) high\n')
+    #print(f'({machine_num}) Listening for PLC(END_SCAN) high\n')
     current = plc.read(
         ('Program:CM080CA01.PorosityInspect.CAM0' + machine_num + '.O.END_SCAN'),
         ('Program:CM080CA01.PorosityInspect.CAM0' + machine_num + '.O.RESET')
@@ -309,7 +309,7 @@ def monitor_END_SCAN(plc, machine_num, sock):
         )
         #print(f'{machine_num} END_SCAN : {current[0][1]} | RESET : {current[1][1]}')
         time.sleep(.005)
-    print(f'({machine_num}) PLC(END_SCAN) went high!\n')
+    #print(f'({machine_num}) PLC(END_SCAN) went high!\n')
 
     ExtKeyence(sock) #function to interrupt Keyence
     pass
@@ -494,15 +494,24 @@ def cycle(machine_num, current_stage):
 
                     pun_str = intArray_to_str(results_dict['PUN'][1])
 
+                    datetime_info_len_check = [str(results_dict['MONTH'][1]), str(results_dict['DAY'][1]), str(results_dict['HOUR'][1]), str(results_dict['MINUTE'][1]), str(results_dict['SECOND'][1])]
+
+                    #confirming all date/time fields are 2 digits (except year)
+                    for x in range(0,len(datetime_info_len_check)):
+                        if(len(datetime_info_len_check[x]) < 2):
+                            datetime_info_len_check[x] = '0' + datetime_info_len_check[x]
+
+                    keyence_string_timeStamp = str(results_dict['YEAR'][1]) + '-' + datetime_info_len_check[0] + '-' + datetime_info_len_check[1] + '-' + datetime_info_len_check[2] + '-' + datetime_info_len_check[3] + '-' + datetime_info_len_check[4]
+
                     #load_to_trigger_start = datetime.datetime.now()
                     #TODO Send branch data to load Keyence for scan
                     print(f'({machine_num}) Loading: {keyence_string}')
                     LoadKeyence(sock,'MW,#PhoenixControlFaceBranch,' + str(results_dict['PART_PROGRAM'][1]) + '\r\n', machine_num) #Keyence loading message, uses PART_PROGRAM from PLC to load specific branch
-                    LoadKeyence(sock,'STW,0,"' + pun_str + '_' + keyence_string + '\r\n', machine_num) # PASSing external string to Keyence for file naming (?)
+                    LoadKeyence(sock,'STW,0,"' + keyence_string_timeStamp + '_' + pun_str + '_' + keyence_string + '\r\n', machine_num) # PASSing external string to Keyence for file naming (?)
                     #LoadKeyence(sock,'STW,0,"' + keyence_string + '\r\n', machine_num) # PASSing external string to Keyence for file naming (?)
-                    LoadKeyence(sock,'OW,42,"' + keyence_string + '-ResultOutput.csv\r\n', machine_num) # .csv file naming loads
-                    LoadKeyence(sock,'OW,43,"' + keyence_string + '-10Largest.csv\r\n', machine_num)
-                    LoadKeyence(sock,'OW,44,"' + keyence_string + '-10Locations.csv\r\n', machine_num)
+                    LoadKeyence(sock,'OW,42,"' + keyence_string_timeStamp + '_' + keyence_string + '-ResultOutput.csv\r\n', machine_num) # .csv file naming loads
+                    LoadKeyence(sock,'OW,43,"' + keyence_string_timeStamp + '_' + keyence_string + '-10Largest.csv\r\n', machine_num)
+                    LoadKeyence(sock,'OW,44,"' + keyence_string_timeStamp + '_' + keyence_string + '-10Locations.csv\r\n', machine_num)
                     #print(f'({machine_num}) Keyence Loaded!\n')
 
                     #PUN_display = results_dict['PUN'] # because I don't know how to print this with apostrophes around dict keys :D
@@ -616,7 +625,7 @@ def cycle(machine_num, current_stage):
                         #check_pause() # checking if user wants to pause
 
                     if(results_dict['END_PROGRAM'][1] == False and DONE_check[1] == False):
-                        print(f'({machine_num}) PLC(END_PROGRAM) is low. Reseting PHOENIX to Stage 0\n')
+                        #print(f'({machine_num}) PLC(END_PROGRAM) is low. Reseting PHOENIX to Stage 0\n')
                         
                         plc.write('Program:CM080CA01.PorosityInspect.CAM0' + machine_num + '.I.READY', True)
                         current_stage = 0 # cycle complete, RESET to stage 0
@@ -794,7 +803,7 @@ def write_part_results(machine_num, part_result, results_dict, keyence_results, 
             part_result = part_result + cover_name + ' : ' + str(keyence_results[0]) + ', ' # appending pass/fail data to part_result string if we're not @ end of the part
             return part_result
     elif(machine_num == '2'):
-        if(results_dict['PART_PROGRAM'][1] == 10):
+        if(results_dict['PART_PROGRAM'][1] == 11):
             part_result = part_result + cover_name + ' : ' + str(keyence_results[0]) # final append to string before writing out to .txt file
             file_name = '' #empty string for .txt file name
             file_name = 'E:\\part_results_consolidated\\machine_3.txt'
@@ -807,12 +816,45 @@ def write_part_results(machine_num, part_result, results_dict, keyence_results, 
         else:
             part_result = part_result + cover_name + ' : ' + str(keyence_results[0]) + ', ' # appending pass/fail data to part_result string if we're not @ end of the part
             return part_result
+#END write_part_results
+
+def config():
+    config_path = 'connector/config.txt'
+    is_config = os.path.isfile(config_path)
+    #print(is_config)
+
+
+    #if config.txt exists in the connector directory, overwrite config.txt file
+    if(is_config):
+        print("Manual config file detected, overwriting...\n")
+        #reading in manual config file
+        new_config = open('connector/config.txt', 'r+').read()
+        #print(new_config)
+
+        #overwriting 'config/config.txt' with contents of 'connector/config.txt'
+        with open('config/config.txt', 'r+') as original_config:
+            #sets file's current position to '0' (start)
+            original_config.seek(0)
+            original_config.write(new_config)
+            original_config.truncate()
+
+
+    #reading config.txt file
+    with open('config\\config.txt') as config_file:
+        config_data = config_file.read()
+        #print(config_data)
+        #print(config_data[0][0])
+        config_vars = json.loads(config_data)
+        print(config_vars)
+
 
 #START main()
 def main():
     global current_stage_1 #keeps track of which stage program is currently in from the timing process
     global current_stage_2
     global kill_threads
+
+    #config() #untested config setup
     
     # Thread declaration / initialization
     t1 = threading.Thread(target=cycle, args=['1', current_stage_1])
