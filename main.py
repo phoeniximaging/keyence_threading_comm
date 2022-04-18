@@ -11,11 +11,9 @@ import os
 import keyboard
 
 '''
-First iteration of error handling for Grob system with automated cycling.
+MOD1 Grob
 
-Uses 'kill_threads' global boolean to kill and restart all threads if any exceptions are thrown
-
-Sends PhoenixFltCodes to PLC
+Implementing external 'config' file to use for PLC/Keyence addresses
 '''
 
 trigger_count = 0
@@ -823,7 +821,6 @@ def config():
     is_config = os.path.isfile(config_path)
     #print(is_config)
 
-
     #if config.txt exists in the connector directory, overwrite config.txt file
     if(is_config):
         print("Manual config file detected, overwriting...\n")
@@ -854,7 +851,7 @@ def main():
     global current_stage_2
     global kill_threads
 
-    #config() #untested config setup
+    #config() #untested config setup, should contain PLC and Keyence IP addresses
     
     # Thread declaration / initialization
     t1 = threading.Thread(target=cycle, args=['1', current_stage_1])
