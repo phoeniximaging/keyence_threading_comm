@@ -521,10 +521,10 @@ def cycle(machine_num, current_stage, config_info):
             # Keyence socket connections
             if(machine_num == '14'):
                 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                sock.connect(('172.19.145.80', 8500))
+                sock.connect((config_info['keyence_1'], 8500))
             elif(machine_num == '15'):
                 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                sock.connect(('172.19.146.81', 8500))
+                sock.connect((config_info['keyence_2'], 8500))
 
             # clearing potential fault info when resetting
             plc.write(
