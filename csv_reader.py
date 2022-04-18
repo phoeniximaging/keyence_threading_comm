@@ -45,6 +45,9 @@ def csv_write(results):
     csv_writer.writerow(values)
 
 def main():
+    #test_str = "1234abcd"
+    #print(test_str[-4:])
+
     while(True):
         csv_results = csv_read()
         print(csv_results)

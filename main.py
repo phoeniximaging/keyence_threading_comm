@@ -424,12 +424,15 @@ def ExtKeyence(sock):
 
 # reading PLC(EndScan) until it goes high to interrupt current Keyence scan
 def monitor_endScan(plc, machine_num, sock):
+    global kill_threads
     #print(f'({machine_num}) Listening for PLC(END_SCAN) high\n')
     current = plc.read(('Program:HM1450_VS' + machine_num + '.VPC1.O.EndScan'),
         ('Program:HM1450_VS' + machine_num + '.VPC1.O.Reset')
     )
 
     while((current[0][1] == False) and (current[1][1] == False)):
+        if kill_threads == True:
+            break
         current = plc.read(('Program:HM1450_VS' + machine_num + '.VPC1.O.EndScan'),
             ('Program:HM1450_VS' + machine_num + '.VPC1.O.Reset')
         )
@@ -594,6 +597,8 @@ def cycle(machine_num, current_stage):
                     #print(f'({machine_num}) Stage 0 : Listening for PLC(LOAD_PROGRAM) = 1\n')
                     #reading PLC until LOAD_PROGRAM goes high
                     while(results_dict['LoadProgram'][1] != True):
+                        if kill_threads == True:
+                            break
                         #check_pause(machine_num) # user pause if 'p' is pressed
                         results_dict = read_plc_dict(plc, machine_num) # continuous PLC read
 
@@ -695,7 +700,7 @@ def cycle(machine_num, current_stage):
                         if(len(datetime_info_len_check[x]) < 2):
                             datetime_info_len_check[x] = '0' + datetime_info_len_check[x]
 
-                    keyence_string = str(results_dict['Year'][1]) + '-' + datetime_info_len_check[0] + '-' + datetime_info_len_check[1] + '-' + datetime_info_len_check[2] + '-' + datetime_info_len_check[3] + '-' + datetime_info_len_check[4] + '_' + keyence_string
+                    keyence_string = str(pun_str[10:22]) + '_' + str(results_dict['Year'][1]) + '-' + datetime_info_len_check[0] + '-' + datetime_info_len_check[1] + '-' + datetime_info_len_check[2] + '-' + datetime_info_len_check[3] + '-' + datetime_info_len_check[4] + '_' + keyence_string
                     print(f'({machine_num}) LOADING : {keyence_string}')
 
                     #load_to_trigger_start = datetime.datetime.now()
@@ -703,9 +708,9 @@ def cycle(machine_num, current_stage):
                     #print(f'Loading: {keyence_string}')
                     LoadKeyence(sock,'MW,#PhoenixControlFaceBranch,' + str(results_dict['PartProgram'][1]) + '\r\n') #Keyence loading message, uses PartProgram from PLC to load specific branch
                     LoadKeyence(sock,'STW,0,"' + keyence_string + '\r\n') # passing external string to Keyence for file naming (?)
-                    LoadKeyence(sock,'OW,42,"' + keyence_string + '-ResultOutput.csv\r\n') # .csv file naming loads
-                    LoadKeyence(sock,'OW,43,"' + keyence_string + '-10Largest.csv\r\n')
-                    LoadKeyence(sock,'OW,44,"' + keyence_string + '-10Locations.csv\r\n')
+                    LoadKeyence(sock,'OW,42,"' + keyence_string + '-Result.csv\r\n') # .csv file naming loads
+                    LoadKeyence(sock,'OW,43,"' + keyence_string + '-10Lar.csv\r\n')
+                    LoadKeyence(sock,'OW,44,"' + keyence_string + '-10Loc.csv\r\n')
                     #print(f'({machine_num}) Keyence Loaded!\n')
 
                     #TODO Actually Mirror Data (write back to PLC)
