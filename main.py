@@ -501,7 +501,7 @@ def keyenceResults_to_PLC(sock, plc, machine_num):
 #END keyenceResults_to_PLC
 
 # primary function, to be used by 14/15 threads
-def cycle(machine_num, current_stage):
+def cycle(machine_num, current_stage, config_info):
     global start_timer #testing
     is_paused = False
     global kill_threads
@@ -514,7 +514,8 @@ def cycle(machine_num, current_stage):
     scan_duration = 0 # keeping track of scan time in MS
 
     #print(f'({machine_num}) Connecting to PLC\n')
-    with LogixDriver('120.57.42.114') as plc:
+    #with LogixDriver('120.57.42.114') as plc:
+    with LogixDriver(config_info['plc_ip']) as plc:
         print(f'({machine_num}) Connected to PLC')
         try:
             # Keyence socket connections
@@ -998,6 +999,21 @@ def write_part_results(machine_num, part_result, results_dict, keyence_results, 
         else:
             part_result = part_result + str(keyence_results[3]) + ', ' # appending pass/fail data to part_result string if we're not @ end of the part
             return part_result
+#END write_part_results
+
+
+def read_config():
+
+    #reading config.txt file
+    with open('D:\\python_testing\\config\\config.txt') as config_file:
+        config_data = config_file.read()
+        #print(config_data)
+        #print(config_data[0][0])
+        config_vars = json.loads(config_data)
+        #print(type(config_vars))
+        #time.sleep(100)
+
+        return config_vars
 
 #START main()
 def main():
@@ -1005,14 +1021,17 @@ def main():
     global current_stage_15
     global kill_threads # signal to end threads if an exception is thrown
 
+    config_info = {}
+    config_info = read_config()
+
     #declaring threads, does not run
     #t1 = threading.Thread(target=TriggerKeyence, args=[sock, 'T1\r\n']) #thread1, passing in socket connection and 'T1' keyence command
     #t2 = threading.Thread(target=ExtKeyence, args=[sock, 'TE,0\r\n', 'TE,1\r\n']) #thread2, uses 'TE,0' and 'TE,1' to cancel while scanning and reset to original state
 
     # original threading tests
     
-    t1 = threading.Thread(target=cycle, args=['14', current_stage_14])
-    t2 = threading.Thread(target=cycle, args=['15', current_stage_15])
+    t1 = threading.Thread(target=cycle, args=['14', current_stage_14, config_info])
+    t2 = threading.Thread(target=cycle, args=['15', current_stage_15, config_info])
 
     t1_heartbeat = threading.Thread(target=heartbeat, args=['14'])
     t2_heartbeat = threading.Thread(target=heartbeat, args=['15'])
