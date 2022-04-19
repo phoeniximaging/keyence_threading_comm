@@ -643,54 +643,54 @@ def cycle(machine_num, current_stage, config_info):
                     
                     if(machine_num == '14'):
                         if(results_dict['PartProgram'][1] == 1):
-                            keyence_string = 'CoverFace-1-625T'
+                            keyence_string = 'CoverFace-1_625T'
                         elif(results_dict['PartProgram'][1] == 2):
-                            keyence_string = 'CoverFace-2-625T'
+                            keyence_string = 'CoverFace-2_625T'
                         elif(results_dict['PartProgram'][1] == 3):
-                            keyence_string = 'IntakeFace-625T'
+                            keyence_string = 'IntakeFace_625T'
                         elif(results_dict['PartProgram'][1] == 4):
-                            keyence_string = 'FrontFace-625T'
+                            keyence_string = 'FrontFace_625T'
                         elif(results_dict['PartProgram'][1] == 5):
-                            keyence_string = 'CoverFace-1-675T'
+                            keyence_string = 'CoverFace-1_675T'
                         elif(results_dict['PartProgram'][1] == 6):
-                            keyence_string = 'CoverFace-2-675T'
+                            keyence_string = 'CoverFace-2_675T'
                         elif(results_dict['PartProgram'][1] == 7):
-                            keyence_string = 'IntakeFace-675T'
+                            keyence_string = 'IntakeFace_675T'
                         elif(results_dict['PartProgram'][1] == 8):
-                            keyence_string = 'FrontFace-675T'
+                            keyence_string = 'FrontFace_675T'
                         elif(results_dict['PartProgram'][1] == 9):
-                            keyence_string = 'CoverFace-1-45T3'
+                            keyence_string = 'CoverFace-1_45T3'
                         elif(results_dict['PartProgram'][1] == 10):
-                            keyence_string = 'CoverFace-2-45T3'
+                            keyence_string = 'CoverFace-2_45T3'
                         elif(results_dict['PartProgram'][1] == 11):
-                            keyence_string = 'IntakeFace-45T3'
+                            keyence_string = 'IntakeFace_45T3'
                         elif(results_dict['PartProgram'][1] == 12):
-                            keyence_string = 'FrontFace-45T3'
+                            keyence_string = 'FrontFace_45T3'
                     elif(machine_num == '15'):
                         if(results_dict['PartProgram'][1] == 1):
-                            keyence_string = 'DeckFace-1-625T'
+                            keyence_string = 'DeckFace-1_625T'
                         elif(results_dict['PartProgram'][1] == 2):
-                            keyence_string = 'DeckFace-2-625T'
+                            keyence_string = 'DeckFace-2_625T'
                         elif(results_dict['PartProgram'][1] == 3):
-                            keyence_string = 'ExhaustFace-625T'
+                            keyence_string = 'ExhaustFace_625T'
                         elif(results_dict['PartProgram'][1] == 4):
-                            keyence_string = 'RearFace-625T'
+                            keyence_string = 'RearFace_625T'
                         elif(results_dict['PartProgram'][1] == 5):
-                            keyence_string = 'DeckFace-1-675T'
+                            keyence_string = 'DeckFace-1_675T'
                         elif(results_dict['PartProgram'][1] == 6):
-                            keyence_string = 'DeckFace-2-675T'
+                            keyence_string = 'DeckFace-2_675T'
                         elif(results_dict['PartProgram'][1] == 7):
-                            keyence_string = 'ExhaustFace-675T'
+                            keyence_string = 'ExhaustFace_675T'
                         elif(results_dict['PartProgram'][1] == 8):
-                            keyence_string = 'RearFace-675T'
+                            keyence_string = 'RearFace_675T'
                         elif(results_dict['PartProgram'][1] == 9):
-                            keyence_string = 'DeckFace-1-45T3'
+                            keyence_string = 'DeckFace-1_45T3'
                         elif(results_dict['PartProgram'][1] == 10):
-                            keyence_string = 'DeckFace-2-45T3'
+                            keyence_string = 'DeckFace-2_45T3'
                         elif(results_dict['PartProgram'][1] == 11):
-                            keyence_string = 'ExhaustFace-45T3'
+                            keyence_string = 'ExhaustFace_45T3'
                         elif(results_dict['PartProgram'][1] == 12):
-                            keyence_string = 'RearFace-45T3'
+                            keyence_string = 'RearFace_45T3'
 
                     pun_str = intArray_to_str(results_dict['PUN'][1])
 
@@ -709,9 +709,9 @@ def cycle(machine_num, current_stage, config_info):
                     #print(f'Loading: {keyence_string}')
                     LoadKeyence(sock,'MW,#PhoenixControlFaceBranch,' + str(results_dict['PartProgram'][1]) + '\r\n') #Keyence loading message, uses PartProgram from PLC to load specific branch
                     LoadKeyence(sock,'STW,0,"' + keyence_string + '\r\n') # passing external string to Keyence for file naming (?)
-                    LoadKeyence(sock,'OW,42,"' + keyence_string + '-Result.csv\r\n') # .csv file naming loads
-                    LoadKeyence(sock,'OW,43,"' + keyence_string + '-10Lar.csv\r\n')
-                    LoadKeyence(sock,'OW,44,"' + keyence_string + '-10Loc.csv\r\n')
+                    LoadKeyence(sock,'OW,42,"' + keyence_string + '-Result\r\n') # .csv file naming loads
+                    LoadKeyence(sock,'OW,43,"' + keyence_string + '-10Lar\r\n')
+                    LoadKeyence(sock,'OW,44,"' + keyence_string + '-10Loc\r\n')
                     #print(f'({machine_num}) Keyence Loaded!\n')
 
                     #TODO Actually Mirror Data (write back to PLC)
@@ -1023,6 +1023,7 @@ def main():
 
     config_info = {}
     config_info = read_config()
+    print(config_info)
 
     #declaring threads, does not run
     #t1 = threading.Thread(target=TriggerKeyence, args=[sock, 'T1\r\n']) #thread1, passing in socket connection and 'T1' keyence command
