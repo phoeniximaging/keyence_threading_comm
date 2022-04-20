@@ -1001,7 +1001,7 @@ def write_part_results(machine_num, part_result, results_dict, keyence_results, 
             return part_result
 #END write_part_results
 
-
+#reads config file into dict
 def read_config():
 
     #reading config.txt file
@@ -1014,6 +1014,7 @@ def read_config():
         #time.sleep(100)
 
         return config_vars
+#END read_config
 
 #START main()
 def main():
