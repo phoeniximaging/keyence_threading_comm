@@ -240,7 +240,12 @@ def write_plc_flush(plc, machine_num):
     ('Program:HM1450_VS' + machine_num + '.VPC1.I.QualityCheckOP370', 0),
     ('Program:HM1450_VS' + machine_num + '.VPC1.I.QualityCheckOP380', 0),
     ('Program:HM1450_VS' + machine_num + '.VPC1.I.QualityCheckOP390', 0),
-    ('Program:HM1450_VS' + machine_num + '.VPC1.I.QualityCheckScoutPartTracking', 0)
+    ('Program:HM1450_VS' + machine_num + '.VPC1.I.QualityCheckScoutPartTracking', 0),
+    ('Program:HM1450_VS' + machine_num + '.VPC1.I.Defect_Number', 0),
+    ('Program:HM1450_VS' + machine_num + '.VPC1.I.Defect_Size', 0),
+    ('Program:HM1450_VS' + machine_num + '.VPC1.I.DefectZone', 0),
+    ('Program:HM1450_VS' + machine_num + '.VPC1.I.Pass', 0),
+    ('Program:HM1450_VS' + machine_num + '.VPC1.I.Fail', 0)
     )
 # end write_plc_flush
 
@@ -455,10 +460,16 @@ def keyenceResults_to_PLC(sock, plc, machine_num):
         keyence_value = int(keyence_value_raw[1])
         results.append(keyence_value)
 
+    print(f'({machine_num}) Defect_Number: {results[0]} {type(results[0])}')
+    print(f'({machine_num}) Defect_Size: {results[1]} {type(results[1])}')
+    print(f'({machine_num}) Defect_Zone: {results[2]} {type(results[2])}')
+    print(f'({machine_num}) Pass: {results[3]} {type(results[3])}')
+    print(f'({machine_num}) Fail: {results[4]} {type(results[4])}')
+
     # writing normalized Keyence results to proper PLC tags
     plc.write(
-        ('Program:HM1450_VS' + machine_num + '.VPC1.I.Defect_Number', results[0]),
-        ('Program:HM1450_VS' + machine_num + '.VPC1.I.Defect_Size', results[1]),
+        ('Program:HM1450_VS' + machine_num + '.VPC1.I.DefectNumber', results[0]),
+        ('Program:HM1450_VS' + machine_num + '.VPC1.I.DefectSize', results[1]),
         ('Program:HM1450_VS' + machine_num + '.VPC1.I.DefectZone', results[2]),
         ('Program:HM1450_VS' + machine_num + '.VPC1.I.Pass', results[3]),
         ('Program:HM1450_VS' + machine_num + '.VPC1.I.Fail', results[4])
