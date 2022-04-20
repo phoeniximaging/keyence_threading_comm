@@ -14,9 +14,11 @@ import keyboard
 '''
 Confirmed Elwema test. Automatically cycles based on PLC reads
 
-First iteration of error handling and self-correction (as well as fault codes)
+Cleaned up code to make more readable
 '''
 
+
+### GLOBALS ########################################################
 trigger_count = 0
 slow_count = 0
 longest_time = 0
@@ -125,27 +127,36 @@ tagChar = [
     'QualityCheckOP390',
     'QualityCheckScoutPartTracking'
         ];
+# END GLOBALS ####################################################
 
+#reads config file into dict
+def read_config():
+
+    #reading config.txt file
+    with open('D:\\python_testing\\config\\config.txt') as config_file:
+        config_data = config_file.read()
+        #print(config_data)
+        #print(config_data[0][0])
+        config_vars = json.loads(config_data)
+        #print(type(config_vars))
+
+        return config_vars
+#END
 
 #single-shot read of all 'arrayOutTags' off PLC
 def read_plc_dict(plc, machine_num):
-    #print("read_plc_dict, generating list of read tags")
     readList = []
     for tag in arrayOutTags :
         newTag = 'Program:HM1450_VS' + machine_num + '.VPC1.O.' + tag;
-        #print(newTag);
         readList.append(newTag)
         
-    resultsList = plc.read(*readList) # tag, value, type, error
+    resultsList = plc.read(*readList) # splat-read: tag, value, type, error
     readDict = {}
-
-    #print("returned results")
     #print(resultsList)
 
+    #generating list of tag names, ONLY end of the full tag name
     for tag in resultsList:
         key = tag.tag.split(".")[-1]
-        #print(key)
-        #print(tag)
         readDict[key] = tag
 
     #print(readDict)
@@ -153,12 +164,12 @@ def read_plc_dict(plc, machine_num):
 #END read_plc_dict
 
 #Writing back to PLC to mirror data on LOAD
-#TODO: Modify to use running values instead of relying on reads from an OPC server
 def write_plc(plc, machine_num, results):
 
     #logging how long the 'read' takes
-    start_time = datetime.datetime.now()
+    #start_time = datetime.datetime.now()
 
+    #one-shot PLC write (to mirror data back)
     plc.write(('Program:HM1450_VS' + machine_num + '.VPC1.I.PartType', results['PartType'][1]),
     ('Program:HM1450_VS' + machine_num + '.VPC1.I.PartProgram', results['PartProgram'][1]),
     ('Program:HM1450_VS' + machine_num + '.VPC1.I.ScanNumber', results['ScanNumber'][1]),
@@ -188,20 +199,21 @@ def write_plc(plc, machine_num, results):
     ('Program:HM1450_VS' + machine_num + '.VPC1.I.QualityCheckScoutPartTracking', results['QualityCheckScoutPartTracking'][1])
     )
 
-    end_time = datetime.datetime.now()
-    time_diff = (end_time - start_time)
-    execution_time = time_diff.total_seconds() * 1000
+    #end_time = datetime.datetime.now()
+    #time_diff = (end_time - start_time)
+    #execution_time = time_diff.total_seconds() * 1000
     #print('\'plc.write()\' took %d ms to run\n' % (execution_time))
     #print("Finished writing PLC...")
-    pass
 #END write_plc
 
 # Flushes PLC data mirroring tags (to 0)
 def write_plc_flush(plc, machine_num):
 
+    #generic fillers for PUN and GMPartNumber (special cases) since they are arrays instead of single values
     plc_writer_PUN = [72, 101, 108, 108, 111, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35]
     plc_writer_GMPartNumber = [35, 35, 35, 35, 35, 35, 35, 35]
 
+    #clearing our PLC tags so they will NOT match .O equivalents
     plc.write(('Program:HM1450_VS' + machine_num + '.VPC1.I.PartType', 0),
     ('Program:HM1450_VS' + machine_num + '.VPC1.I.PartProgram', 0),
     ('Program:HM1450_VS' + machine_num + '.VPC1.I.ScanNumber', 0),
@@ -232,15 +244,14 @@ def write_plc_flush(plc, machine_num):
     )
 # end write_plc_flush
 
-#used to verify values when writing back to PLC
+#used to verify values when writing back to PLC, 
 def protected_ord(value):
     if len(value) > 1:
         print("WRONG Below: ")
         print(value)
         print()
         value = value[0]
-    #print("Returning:")
-    #print(value)
+    #print(f'Returning: {value}')
     return ord(value)
 #END protected_ord
 
@@ -257,13 +268,11 @@ def intArray_to_str(intArray):
     return strReturn
 #END intArray_to_str
 
-#function to translate PLC int-arrays into ASCII str-arrays for OPC
+#function to translate PLC int-arrays into ASCII str-arrays for OPC, deprecated with OPC removal
 def intArray_to_strArray(intArray):
     #declaring an array of 'str' to hold return value
     strArray = []
     #print(intArray)
-
-    #print()
 
     #reads each 'int' from array then appends to 'str' array in char form (per element)
     for i in range(len(intArray)):
@@ -273,23 +282,7 @@ def intArray_to_strArray(intArray):
     return strArray
 #END intArray_to_strArray
 
-#function to translate str-arrays into PLC int-arrays
-def strArray_to_intArray(strArray):
-    #declaring an array of 'int' to hold return value
-    intArray = []
-    strArray_list = list(strArray)
-    #print(strArray_list)
-    #print(list(strArray))
-
-    #reads each char from str array then appends to 'intArray' in int form (per element)
-    for i in range(len(strArray_list)):
-        
-        intArray.append(ord(strArray_list[i]))
-
-    return intArray
-#END strArray_to_intArray
-
-# Triggering Keyence with socket only being connected/closed ONCE (program startup and shutdown)
+# Triggering Keyence (to start a scan)
 def TriggerKeyence(sock, machine_num, item):
 
     global trigger_count
@@ -297,10 +290,7 @@ def TriggerKeyence(sock, machine_num, item):
     global longest_time
     global start_timer_END
 
-    #verify Keyence(Busy) is high before we send a 'T1' trigger
-    #with lock:
     message = 'MR,%Busy\r\n' #initial read of '%Busy' to ensure scan is actually taking place (%Busy == 1)
-    #message = 'MR,%Cam1Ready\r\n' # Experimental UNTESTED Keyence flag to validate if 'T1' is ready to be sent
     sock.sendall(message.encode())
     data = sock.recv(32)
     #print(f'({machine_num}) %Busy = {data}')
@@ -325,13 +315,13 @@ def TriggerKeyence(sock, machine_num, item):
     if(int(execution_time) > 100):
         print(f'\n({machine_num}) TriggerKeyence (First Busy Pull) SLOW (over 100ms)! Took {execution_time} ms!!!\n')
 
-    message = item
+    message = item # 'T1' in this case
     trigger_start_time = datetime.datetime.now() # marking when 'T1' is sent
     #with lock:
-    sock.sendall(message.encode())
+    sock.sendall(message.encode()) #*** sending 'T1', actual trigger command ***
     data = sock.recv(32)
-        #print(f'({machine_num}) received "%s"\n' % data)
-        #start_timer_END = datetime.datetime.now() # END test timer
+    #print(f'({machine_num}) received "%s"\n' % data)
+    #start_timer_END = datetime.datetime.now() # END test timer
     #time_diff = (start_timer_END - start_timer)
     #execution_time = time_diff.total_seconds() * 1000
     #print(f'PLC(Start) read to Keyence(T1) read in : {execution_time} ms')
@@ -341,13 +331,10 @@ def TriggerKeyence(sock, machine_num, item):
     if(int(execution_time) > 50):
         print(f'({machine_num}) TriggerKeyence (Sending T1) SLOW (over 50ms)! Took {execution_time} ms!!!\n')
     
-    #am I using these right?(!)
-    #with lock:
     message = 'MR,%Busy\r\n' #initial read of '%Busy' to ensure scan is actually taking place (%Busy == 1)
-    #message = 'MR,%Cam1Ready\r\n'
     sock.sendall(message.encode())
     data = sock.recv(32)
-        #print(f'%Busy = {data}')
+    #print(f'%Busy = {data}')
     
     final_busy_pull_start = datetime.datetime.now()
     # looping until '%Busy' == 0
@@ -356,12 +343,9 @@ def TriggerKeyence(sock, machine_num, item):
         # utilizing 'with' to use thread lock
         #message = 'T1\r\n'
         message = 'MR,%Busy\r\n'
-        #message = 'MR,%Cam1Ready\r\n'
-        #with lock:
         sock.sendall(message.encode())
         data = sock.recv(32)
         print(f'({machine_num}) (Post-Trigger) TriggerKeyence: received "%s"' % data)
-        #print('Scanning...')
         time.sleep(.2) # artificial 1ms pause between Keyence reads
     #print('Keyence %Busy verified!')
     trigger_end_time = datetime.datetime.now() # marking when '%Busy' is read off Keyence
@@ -376,21 +360,20 @@ def TriggerKeyence(sock, machine_num, item):
     
 #END 'TriggerKeyence'
 
-#sends specific Keyence Program (branch) info to pre-load/prepare Keyence for Trigger(T1)
+#sends specific Keyence Program (branch) info to pre-load/prepare Keyence for Trigger(T1), also loads naming variables for result files
 def LoadKeyence(sock, item):
     #print('LOADING KEYENCE\n')
     message = item # keyence message
-    #with lock:
     sock.sendall(message.encode()) # sending branch info
     #print(f'\n\'{item}\' Sent!\n')
     data = sock.recv(32)
     #print('received "%s"\n' % data)
 
 # sends 'TE,0' then 'TE,1' to the Keyence, resetting to original state (ready for new 'T1')
+#interrupts active scans on 'EndScan' from PLC
 def ExtKeyence(sock):
     #print('ExtKeyence!')
     message = 'TE,0\r\n' # setting 'TE,0' first
-    #with lock:
     sock.sendall(message.encode()) # sending TE,0
     data = sock.recv(32)
     #print('\n\'TE,0\' Sent!\n')
@@ -402,19 +385,13 @@ def ExtKeyence(sock):
     #print('received "%s"' % data)
 
     message = 'MR,%Busy\r\n' #initial read of '%Busy' to ensure scan is actually taking place (%Busy == 1)
-    #message = 'MR,%Cam1Ready\r\n'
     sock.sendall(message.encode())
     data = sock.recv(32)
     #print(f'%Busy = {data}')
 
     # looping until '%Busy' == 0
     while(data != b'MR,+0000000000.000000\r'):
-    #while(data != b'T1\r'):
-        # utilizing 'with' to use thread lock
-        #message = 'T1\r\n'
         message = 'MR,%Busy\r\n'
-        #message = 'MR,%Cam1Ready\r\n'
-        #with lock:
         sock.sendall(message.encode())
         data = sock.recv(32)
         print(f'ExtKeyence: received "%s"' % data)
@@ -426,53 +403,46 @@ def ExtKeyence(sock):
 def monitor_endScan(plc, machine_num, sock):
     global kill_threads
     #print(f'({machine_num}) Listening for PLC(END_SCAN) high\n')
-    current = plc.read(('Program:HM1450_VS' + machine_num + '.VPC1.O.EndScan'),
+
+    #PLC read
+    current = plc.read(
+        ('Program:HM1450_VS' + machine_num + '.VPC1.O.EndScan'),
         ('Program:HM1450_VS' + machine_num + '.VPC1.O.Reset')
     )
 
+    #listening for 'EndScan' OR 'Reset' to go high
     while((current[0][1] == False) and (current[1][1] == False)):
         if kill_threads == True:
             break
+        #continuing tag check(s)
         current = plc.read(('Program:HM1450_VS' + machine_num + '.VPC1.O.EndScan'),
             ('Program:HM1450_VS' + machine_num + '.VPC1.O.Reset')
         )
-        #plc.write('Program:HM1450_VS' + machine_num + '.VPC1.I.Heartbeat', True)
         time.sleep(.005)
-    #print(f'({machine_num}) PLC(END_SCAN) went high!\n')
 
+    #print(f'({machine_num}) PLC(END_SCAN) went high!\n')
     #ExtKeyence(sock) #function to interrupt Keyence
-    pass
 #END monitor_endScan
 
 # function to monitor the Keyence tag 'KeyenceNotRunning', when True (+00001.00000) we know Keyence has completed result processing and FTP file write
 def monitor_KeyenceNotRunning(sock, machine_num):
-    ''' From Testing w/o TE,0 / TE,1
-    msg = 'MR,%Busy\r\n'
-    sock.sendall(msg.encode())
-    data = sock.recv(32)
-    while(data != b'MR,+0000000000.000000\r'):
-        sock.sendall(msg.encode())
-        data = sock.recv(32)
-        #print(f'({machine_num}) Keyence(Busy) = {data}')
-        time.sleep(.005)
-    '''
-
     #print(f'({machine_num}) Keyence Processing...')
     #msg = 'MR,#KeyenceNotRunning\r\n'
     msg = 'MR,#KeyenceNotRunning\r\n'
     sock.sendall(msg.encode())
     data = sock.recv(32)
+
+    #until #KeyenceNotRunning from Keyence goes high, continuously check its value
     while(data != b'MR,+0000000001.000000\r'):
         sock.sendall(msg.encode())
         data = sock.recv(32)
         time.sleep(.005)
     #print(f'({machine_num}) Keyence Processing Complete!\n')
-    pass
 #END monitor_KeyenceNotRunning
 
 # read defect information from the Keyence, then passes that as well as pass,fail,done to PLC, returns a list of result data for .txt file creation
 def keyenceResults_to_PLC(sock, plc, machine_num):
-    #TODO read results from Keyence then pass to proper tags on PLC
+    #read results from Keyence then pass to proper tags on PLC
     result_messages = ['MR,#ReportDefectCount\r\n', 'MR,#ReportLargestDefectSize\r\n', 'MR,#ReportLargestDefectZoneNumber\r\n', 'MR,#ReportPass\r\n', 'MR,#ReportFail\r\n']
     results = []
 
@@ -496,12 +466,13 @@ def keyenceResults_to_PLC(sock, plc, machine_num):
     #print(f'({machine_num}) Pass = {results[3]} ; Fail = {results[4]}')
     plc.write('Program:HM1450_VS' + machine_num + '.VPC1.I.Done', True)
     #print(f'({machine_num}) Keyence Results written to PLC!')
-    return results
+    return results #return results to use in result files
 
 #END keyenceResults_to_PLC
 
 # primary function, to be used by 14/15 threads
 def cycle(machine_num, current_stage, config_info):
+    #globals, not all used
     global start_timer #testing
     is_paused = False
     global kill_threads
@@ -509,8 +480,7 @@ def cycle(machine_num, current_stage, config_info):
     global abort_latch_14
     global reset_latch_14
 
-    part_result = '' # for .csv logging
-
+    part_result = '' # string for .csv logging
     scan_duration = 0 # keeping track of scan time in MS
 
     #print(f'({machine_num}) Connecting to PLC\n')
@@ -1001,20 +971,6 @@ def write_part_results(machine_num, part_result, results_dict, keyence_results, 
             return part_result
 #END write_part_results
 
-#reads config file into dict
-def read_config():
-
-    #reading config.txt file
-    with open('D:\\python_testing\\config\\config.txt') as config_file:
-        config_data = config_file.read()
-        #print(config_data)
-        #print(config_data[0][0])
-        config_vars = json.loads(config_data)
-        #print(type(config_vars))
-        #time.sleep(100)
-
-        return config_vars
-#END read_config
 
 #START main()
 def main():
