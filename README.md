@@ -15,11 +15,11 @@ import socket
 import json
 ```
 
-Uses the open-source pycomm3 library to communicate with the PLC.
-Uses multiple threads to concurrently run multiple Keyence units at once (with separate sets of PLC tags).
-Uses datetime/time for error detection and performance logging.
-Uses socket to connect and interact with the Keyence unit(s)
-Uses json to load in a config file, for IP addressing mainly
+* Uses the open-source pycomm3 library to communicate with the PLC.
+* Uses multiple threads to concurrently run multiple Keyence units at once (with separate sets of PLC tags).
+* Uses datetime/time for error detection and performance logging.
+* Uses socket to connect and interact with the Keyence unit(s)
+* Uses json to load in a config file, for IP addressing mainly
 
 ## main.py:
 All the functional code is in this file. Requires a companion 'config.txt' file to designate addresses.
