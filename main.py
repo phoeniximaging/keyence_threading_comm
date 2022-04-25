@@ -460,11 +460,11 @@ def keyenceResults_to_PLC(sock, plc, machine_num):
         keyence_value = int(keyence_value_raw[1])
         results.append(keyence_value)
 
-    print(f'({machine_num}) Defect_Number: {results[0]} {type(results[0])}')
-    print(f'({machine_num}) Defect_Size: {results[1]} {type(results[1])}')
-    print(f'({machine_num}) Defect_Zone: {results[2]} {type(results[2])}')
-    print(f'({machine_num}) Pass: {results[3]} {type(results[3])}')
-    print(f'({machine_num}) Fail: {results[4]} {type(results[4])}')
+    print(f'({machine_num}) Defect_Number: {results[0]}')
+    print(f'({machine_num}) Defect_Size: {results[1]}')
+    print(f'({machine_num}) Defect_Zone: {results[2]}')
+    print(f'({machine_num}) Pass: {results[3]}')
+    print(f'({machine_num}) Fail: {results[4]}')
 
     # writing normalized Keyence results to proper PLC tags
     plc.write(
@@ -830,6 +830,7 @@ def cycle(machine_num, current_stage, config_info):
                     print(f'({machine_num}) Cycle : kill_threads high, restarting all threads')
                     break # Kill thread if global is set True for any reason
                 time.sleep(.005) #artificial loop timer
+        #if something goes wrong while 'cycle' is looping
         except Exception as e:
             if(str(e) == '[WinError 10054] An existing connection was forcibly closed by the remote host'):
                 print(f'({machine_num}) Keyence Connection Error, sending PhoenixFltCode : 1')
