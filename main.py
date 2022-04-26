@@ -90,6 +90,20 @@ tagChar = [
     'PLANTCODE'
     ];
 
+#reads config file into dict
+def read_config():
+
+    #reading config.txt file
+    with open('C:\\python_middleman\\config\\config.txt') as config_file:
+        config_data = config_file.read()
+        #print(config_data)
+        #print(config_data[0][0])
+        config_vars = json.loads(config_data)
+        #print(type(config_vars))
+
+        return config_vars
+#END
+
 def read_plc_dict(plc, machine_num):
     #print("read_plc_dict, generating list of read tags")
     readList = []
@@ -331,7 +345,7 @@ def monitor_KeyenceNotRunning(sock, machine_num):
 #END monitor_KeyenceNotRunning
 
 # primary function, to be used by 14/15 threads
-def cycle(machine_num, current_stage):
+def cycle(machine_num, current_stage, config_info):
     global start_timer #testing
     program_swapped = False # latch for switching from ring seal to other Keyence program
     is_paused = False
@@ -340,16 +354,16 @@ def cycle(machine_num, current_stage):
     part_result = '' # string to hold result info per part, then log into a .txt once complete
 
     print(f'({machine_num}) Connecting to PLC...\n')
-    with LogixDriver('120.123.230.39/0') as plc:
+    with LogixDriver(config_info['plc_ip']) as plc:
         print(f'({machine_num}) Connected to PLC')
         try:
             # Keyence socket connections
             if(machine_num == '1'):
                 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                sock.connect(('172.19.145.80', 8500))
+                sock.connect((config_info['keyence_1'], 8500))
             elif(machine_num == '2'):
                 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                sock.connect(('172.19.146.81', 8500))
+                sock.connect((config_info['keyence_2'], 8500))
             while(True):
                 if(kill_threads):
                     print(f'({machine_num}) kill_threads detected! Restarting threads...')
@@ -671,8 +685,8 @@ def check_pause():
 #END #check_pause
 
 # pulses heartbeat tag every second, on independent thread(s) per machine
-def heartbeat(machine_num):
-    with LogixDriver('120.123.230.39/0') as plc:
+def heartbeat(machine_num, config_info):
+    with LogixDriver(config_info['plc_ip']) as plc:
         print(f'({machine_num}) Heartbeat thread connected to PLC. Writing \'HEARTBEAT\' high every 1 second')
         while(True):
             plc.write('Program:BM650CA01.PorosityInspect.CAM0' + machine_num + '.I.HEARTBEAT', True)
@@ -750,9 +764,9 @@ def create_csv(machine_num, results, keyence_results, face_name):
     #E:\FTP\172.19.146.81\xg\result
     file_name = '' #empty string for .csv file name
     if(machine_num == '1'):
-        file_name = 'E:\\FTP\\172.19.147.82\\xg\\result'
+        file_name = 'E:\\FTP\\172.19.145.80\\xg\\result'
     elif(machine_num == '2'):
-        file_name = 'E:\\FTP\\172.19.148.83\\xg\\result'
+        file_name = 'E:\\FTP\\172.19.146.81\\xg\\result'
     file_name = file_name + '\\' + face_name + '.txt'
     with open(file_name, 'w', newline='') as f:
         f.write('PART_TYPE_2, ' + str(results['PART_TYPE'][1]) + '\n')
@@ -805,13 +819,17 @@ def main():
     global current_stage_1 #keeps track of which stage program is currently in from the timing process
     global current_stage_2
     global kill_threads
+
+    config_info = {}
+    config_info = read_config()
+    print(config_info)
     
     # Thread declaration / initialization
-    t1 = threading.Thread(target=cycle, args=['1', current_stage_1])
-    t2 = threading.Thread(target=cycle, args=['2', current_stage_2])
+    t1 = threading.Thread(target=cycle, args=['1', current_stage_1, config_info])
+    t2 = threading.Thread(target=cycle, args=['2', current_stage_2, config_info])
 
-    t1_heartbeat = threading.Thread(target=heartbeat, args=['1'])
-    t2_heartbeat = threading.Thread(target=heartbeat, args=['2'])
+    t1_heartbeat = threading.Thread(target=heartbeat, args=['1', config_info])
+    t2_heartbeat = threading.Thread(target=heartbeat, args=['2', config_info])
 
     kill_threads = False
     print("Starting Threads (1 & 2)...\n")
