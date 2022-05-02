@@ -54,6 +54,20 @@ arrayOutTags = [
     'TIMESTAMP_SECOND'
     ];
 
+#reads config file into dict
+def read_config():
+
+    #reading config.txt file
+    with open('C:\\Users\\User\\Desktop\\TESTING\\config\\config.txt') as config_file:
+        config_data = config_file.read()
+        #print(config_data)
+        #print(config_data[0][0])
+        config_vars = json.loads(config_data)
+        #print(type(config_vars))
+
+        return config_vars
+#END
+
 tagKeys = []
 for tag in arrayOutTags:
     tagKeys.append(tag.split("{")[0]) # delete trailiing { if it exists
@@ -329,7 +343,7 @@ def monitor_KeyenceNotRunning(sock, machine_num):
 #END monitor_KeyenceNotRunning
 
 # primary function, to be used by 14/15 threads
-def cycle(machine_num, current_stage):
+def cycle(machine_num, current_stage, config_info):
     global start_timer #testing
     program_swapped = False # latch for switching from ring seal to other Keyence program
     is_paused = False
@@ -338,16 +352,19 @@ def cycle(machine_num, current_stage):
     part_result = '' # string to hold result info per part, then log into a .txt once complete
 
     print(f'({machine_num}) Connecting to PLC...\n')
-    with LogixDriver('120.123.230.39/0') as plc:
+    #with LogixDriver('120.123.230.39/0') as plc:
+    with LogixDriver(config_info['plc_ip']) as plc:
         print(f'({machine_num}) Connected to PLC')
         try:
             # Keyence socket connections
             if(machine_num == '1'):
                 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                sock.connect(('172.19.147.82', 8500))
+                #sock.connect(('172.19.147.82', 8500))
+                sock.connect((config_info['keyence_1_ip'], 8500))
             elif(machine_num == '2'):
                 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                sock.connect(('172.19.148.83', 8500))
+                #sock.connect(('172.19.148.83', 8500))
+                sock.connect((config_info['keyence_2_ip'], 8500))
             while(True):
                 if(kill_threads):
                     print(f'({machine_num}) kill_threads detected! Restarting threads...')
@@ -447,59 +464,77 @@ def cycle(machine_num, current_stage):
                     keyence_string = '' #building out external Keyence string for scan file naming
                     if(machine_num == '1'):
                         if(results_dict['PART_PROGRAM'][1] == 1):
-                            keyence_string = 'Ring_Seal_Surface'
+                            #keyence_string = 'Ring-Seal-Surface'
+                            keyence_string = config_info['machine_1_1']
                             KeyenceSwapCheck(sock,machine_num,'1') # ensures Keyence has the correct program loaded
                         elif(results_dict['PART_PROGRAM'][1] == 2):
-                            keyence_string = 'Case_Mounting_Face_Section_1'
+                            #keyence_string = 'Case-Mounting-1'
+                            keyence_string = config_info['machine_1_2']
                             KeyenceSwapCheck(sock,machine_num,'2')
                         elif(results_dict['PART_PROGRAM'][1] == 3):
-                            keyence_string = 'Case_Mounting_Face_Section_2'
+                            #keyence_string = 'Case-Mounting-2'
+                            keyence_string = config_info['machine_1_3']
                             KeyenceSwapCheck(sock,machine_num,'2') # redundant?
                         elif(results_dict['PART_PROGRAM'][1] == 4):
-                            keyence_string = 'Case_Mounting_Face_Section_3'
+                            #keyence_string = 'Case-Mounting-3'
+                            keyence_string = config_info['machine_1_4']
                             KeyenceSwapCheck(sock,machine_num,'2') # redundant?
                         elif(results_dict['PART_PROGRAM'][1] == 5):
-                            keyence_string = 'Oil_Cooler_Ports'
+                            #keyence_string = 'Oil-Cooler-Ports'
+                            keyence_string = config_info['machine_1_5']
                             KeyenceSwapCheck(sock,machine_num,'2') # redundant?
                         elif(results_dict['PART_PROGRAM'][1] == 6):
-                            keyence_string = 'H311'
+                            #keyence_string = 'H311'
+                            keyence_string = config_info['machine_1_6']
                             KeyenceSwapCheck(sock,machine_num,'2') # redundant?
                     elif(machine_num == '2'):
                         if(results_dict['PART_PROGRAM'][1] == 1):
                             #keyence_string = 'Case_Rear_Extension_1_Sealing_Face_Section_1'
-                            keyence_string = 'Case_1_Sealing_Face_1'
+                            #keyence_string = 'Case-1-Sealing-Face-1'
+                            keyence_string = config_info['machine_2_1']
                         elif(results_dict['PART_PROGRAM'][1] == 2):
                             #keyence_string = 'Case_Rear_Extension_1_Sealing_Face_Section_2'
-                            keyence_string = 'Case_1_Sealing_Face_2'
+                            #keyence_string = 'Case-1-Sealing-Face-2'
+                            keyence_string = config_info['machine_2_2']
                         elif(results_dict['PART_PROGRAM'][1] == 3):
-                            keyence_string = 'Case_Rear_Extension_OD_Pilot_Section_1'
+                            #keyence_string = 'Pilot-Section-1'
+                            keyence_string = config_info['machine_2_3']
                         elif(results_dict['PART_PROGRAM'][1] == 4):
-                            keyence_string = 'Case_Rear_Extension_OD_Pilot_Section_2'
+                            #keyence_string = 'Pilot-Section-2'
+                            keyence_string = config_info['machine_2_4']
                         elif(results_dict['PART_PROGRAM'][1] == 5):
-                            keyence_string = 'H114'
+                            #keyence_string = 'H114'
+                            keyence_string = config_info['machine_2_5']
                         elif(results_dict['PART_PROGRAM'][1] == 6):
-                            keyence_string = 'Shift_Cable_Holes'
+                            #keyence_string = 'Shift-Cable-Holes'
+                            keyence_string = config_info['machine_2_6']
                         elif(results_dict['PART_PROGRAM'][1] == 7):
-                            keyence_string = 'Oil_Cooler_Ports' # plans are to remove this, moving to robot 1
+                            #keyence_string = 'Oil-Cooler-Ports' # plans are to remove this, moving to robot 1
+                            keyence_string = config_info['machine_2_7']
                         elif(results_dict['PART_PROGRAM'][1] == 8):
-                            keyence_string = 'H308'
+                            #keyence_string = 'H308'
+                            keyence_string = config_info['machine_2_8']
                         elif(results_dict['PART_PROGRAM'][1] == 9):
-                            keyence_string = 'H403'
+                            #keyence_string = 'H403'
+                            keyence_string = config_info['machine_2_9']
                         elif(results_dict['PART_PROGRAM'][1] == 10):
-                            keyence_string = 'H406'
+                            #keyence_string = 'H406'
+                            keyence_string = config_info['machine_2_10']
                         elif(results_dict['PART_PROGRAM'][1] == 11):
-                            keyence_string = 'H514_Corner'
+                            #keyence_string = 'H514-Corner'
+                            keyence_string = config_info['machine_2_11']
 
                     pun_str = intArray_to_str(results_dict['PUN'][1])
 
-                    datetime_info_len_check = [str(results_dict['MONTH'][1]), str(results_dict['DAY'][1]), str(results_dict['HOUR'][1]), str(results_dict['MINUTE'][1]), str(results_dict['SECOND'][1])]
+                    datetime_info_len_check = [str(results_dict['TIMESTAMP_MONTH'][1]), str(results_dict['TIMESTAMP_DAY'][1]), str(results_dict['TIMESTAMP_HOUR'][1]), str(results_dict['TIMESTAMP_MINUTE'][1]), str(results_dict['TIMESTAMP_SECOND'][1])]
 
                     #confirming all date/time fields are 2 digits (except year)
                     for x in range(0,len(datetime_info_len_check)):
                         if(len(datetime_info_len_check[x]) < 2):
                             datetime_info_len_check[x] = '0' + datetime_info_len_check[x]
 
-                    keyence_string_timeStamp = str(results_dict['YEAR'][1]) + '-' + datetime_info_len_check[0] + '-' + datetime_info_len_check[1] + '-' + datetime_info_len_check[2] + '-' + datetime_info_len_check[3] + '-' + datetime_info_len_check[4]
+                    keyence_string_timeStamp = str(results_dict['TIMESTAMP_YEAR'][1]) + '-' + datetime_info_len_check[0] + '-' + datetime_info_len_check[1] + '-' + datetime_info_len_check[2] + '-' + datetime_info_len_check[3] + '-' + datetime_info_len_check[4]
+                    #keyence_string = str(pun_str[10:22]) + '_' + str(results_dict['Year'][1]) + '-' + datetime_info_len_check[0] + '-' + datetime_info_len_check[1] + '-' + datetime_info_len_check[2] + '-' + datetime_info_len_check[3] + '-' + datetime_info_len_check[4] + '_' + keyence_string
 
                     #load_to_trigger_start = datetime.datetime.now()
                     #TODO Send branch data to load Keyence for scan
@@ -507,9 +542,9 @@ def cycle(machine_num, current_stage):
                     LoadKeyence(sock,'MW,#PhoenixControlFaceBranch,' + str(results_dict['PART_PROGRAM'][1]) + '\r\n', machine_num) #Keyence loading message, uses PART_PROGRAM from PLC to load specific branch
                     LoadKeyence(sock,'STW,0,"' + keyence_string_timeStamp + '_' + pun_str + '_' + keyence_string + '\r\n', machine_num) # PASSing external string to Keyence for file naming (?)
                     #LoadKeyence(sock,'STW,0,"' + keyence_string + '\r\n', machine_num) # PASSing external string to Keyence for file naming (?)
-                    LoadKeyence(sock,'OW,42,"' + keyence_string_timeStamp + '_' + keyence_string + '-ResultOutput.csv\r\n', machine_num) # .csv file naming loads
-                    LoadKeyence(sock,'OW,43,"' + keyence_string_timeStamp + '_' + keyence_string + '-10Largest.csv\r\n', machine_num)
-                    LoadKeyence(sock,'OW,44,"' + keyence_string_timeStamp + '_' + keyence_string + '-10Locations.csv\r\n', machine_num)
+                    LoadKeyence(sock,'OW,42,"' + keyence_string_timeStamp + '_' + pun_str[7:14] + '_' + keyence_string + '_ResultOutput\r\n', machine_num) # .csv file naming loads
+                    LoadKeyence(sock,'OW,43,"' + keyence_string_timeStamp + '_' + pun_str[7:14] + '_' + keyence_string + '_10Largest\r\n', machine_num)
+                    LoadKeyence(sock,'OW,44,"' + keyence_string_timeStamp + '_' + pun_str[7:14] + '_' + keyence_string + '_10Locations\r\n', machine_num)
                     #print(f'({machine_num}) Keyence Loaded!\n')
 
                     #PUN_display = results_dict['PUN'] # because I don't know how to print this with apostrophes around dict keys :D
@@ -568,6 +603,7 @@ def cycle(machine_num, current_stage):
                         end_timer_T1_to_END_SCAN = datetime.datetime.now()
                         diff_timer_T1_to_END_SCAN = (end_timer_T1_to_END_SCAN - start_timer_T1_to_END_PROGRAM)
                         execution_time = diff_timer_T1_to_END_SCAN.total_seconds() * 1000
+                        scan_duration = execution_time
                         #print(f'({machine_num}) TriggerKeyence to PLC(END_SCAN) high in: {execution_time} ms')
 
                         monitor_KeyenceNotRunning(sock, machine_num) # verify Keyence has processed results and written out FTP files
@@ -578,7 +614,7 @@ def cycle(machine_num, current_stage):
 
                         #TODO PASS/FAIL RESULTS
                         keyence_results = keyenceResults_to_PLC(sock, plc, machine_num, keyence_string) # sends Keyence result data to the PLC while simultaneously populating a local result list to write out into a .txt file
-                        create_csv(machine_num, results_dict, keyence_results, keyence_string) # creating result .csv (.txt) file
+                        create_csv(machine_num, results_dict, keyence_results, keyence_string, keyence_string_timeStamp, pun_str, scan_duration) # creating result .csv (.txt) file
 
                         part_program_display = results_dict['PART_PROGRAM']
                         #print(f'({machine_num}) RESULTS : {keyence_string} ({part_program_display}) : {keyence_results[0]}')
@@ -758,14 +794,18 @@ def KeyenceSwapCheck(sock,machine_num,program_num):
 #END KeyenceSwapCheck
 
 # George's request for a .csv file per inspection
-def create_csv(machine_num, results, keyence_results, face_name):
+def create_csv(machine_num, results, keyence_results, face_name, dateTime, pun_str, duration):
     #E:\FTP\172.19.146.81\xg\result
     file_name = '' #empty string for .csv file name
     if(machine_num == '1'):
         file_name = 'E:\\FTP\\172.19.147.82\\xg\\result'
     elif(machine_num == '2'):
         file_name = 'E:\\FTP\\172.19.148.83\\xg\\result'
-    file_name = file_name + '\\' + face_name + '.txt'
+    pun_print_test = results['PUN'][1]
+    print(f'({machine_num}) PUN : {pun_str} \n({pun_str[7:14]})\n{pun_print_test}')
+
+    file_name = file_name + '\\' + dateTime + '_' + pun_str[7:14] + '_' + face_name + '.txt'
+    #file_name = file_name + '\\' + dateTime + '_' + face_name + '.txt'
     with open(file_name, 'w', newline='') as f:
         f.write('PART_TYPE_2, ' + str(results['PART_TYPE'][1]) + '\n')
         f.write('PART_PROGRAM_2, ' + str(results['PART_PROGRAM'][1]) + '\n')
@@ -779,6 +819,7 @@ def create_csv(machine_num, results, keyence_results, face_name):
         f.write('SECOND_2, ' + str(results['TIMESTAMP_SECOND'][1]) + '\n')
         f.write('PASS_2, ' + str(keyence_results[0]) + '\n')
         f.write('FAIL_2, ' + str(keyence_results[1]) + '\n')
+        f.write('DURATION_2, ' + str(duration) + '\n')
 
     pass
 #END create_csv
@@ -851,11 +892,15 @@ def main():
     global current_stage_2
     global kill_threads
 
+    config_info = {}
+    config_info = read_config()
+    print(config_info)
+
     #config() #untested config setup, should contain PLC and Keyence IP addresses
     
     # Thread declaration / initialization
-    t1 = threading.Thread(target=cycle, args=['1', current_stage_1])
-    t2 = threading.Thread(target=cycle, args=['2', current_stage_2])
+    t1 = threading.Thread(target=cycle, args=['1', current_stage_1, config_info])
+    t2 = threading.Thread(target=cycle, args=['2', current_stage_2, config_info])
 
     t1_heartbeat = threading.Thread(target=heartbeat, args=['1'])
     t2_heartbeat = threading.Thread(target=heartbeat, args=['2'])
