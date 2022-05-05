@@ -1125,7 +1125,7 @@ def main():
     t2_heartbeat = threading.Thread(target=heartbeat, args=['15'])
 
     #file cleanup thread, paths hard-coded right now, could probably be redone as a list
-    t_file_cleanup = threading.Thread(target=file_cleanup, args=['E:\\FTP\\' + config_info['keyence_1'] + '\\xg\\', 'E:\\FTP\\' + config_info['keyence_1'] + '\\xg\\', 'E:\\part_results_consolidated\\'])
+    t_file_cleanup = threading.Thread(target=file_cleanup, args=['E:\\FTP\\' + config_info['keyence_1'] + '\\xg\\', 'E:\\FTP\\' + config_info['keyence_2'] + '\\xg\\', 'E:\\part_results_consolidated\\'])
 
     kill_threads = False
     print("Starting Threads (14 & 15)...")
