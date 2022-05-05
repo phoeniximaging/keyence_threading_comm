@@ -10,6 +10,7 @@ import json
 import os
 from multiprocessing import Process
 import keyboard
+import glob
 
 '''
 Confirmed Elwema test. Automatically cycles based on PLC reads
@@ -37,6 +38,8 @@ kill_threads = False # global boolean to stop both threads on error
 endProgram_latch_14 = False
 abort_latch_14 = False
 reset_latch_14 = False
+
+config_info = {}
 
 # global variable declarations, some are probably unnecessary(?)
 arrayOutTags = [
@@ -482,7 +485,7 @@ def keyenceResults_to_PLC(sock, plc, machine_num):
 #END keyenceResults_to_PLC
 
 # primary function, to be used by 14/15 threads
-def cycle(machine_num, current_stage, config_info):
+def cycle(machine_num, current_stage):
     #globals, not all used
     global start_timer #testing
     is_paused = False
@@ -490,6 +493,8 @@ def cycle(machine_num, current_stage, config_info):
     global endProgram_latch_14
     global abort_latch_14
     global reset_latch_14
+    global config_info
+    #print(config_info)
 
     part_result = '' # string for .csv logging
     scan_duration = 0 # keeping track of scan time in MS
@@ -624,54 +629,78 @@ def cycle(machine_num, current_stage, config_info):
                     
                     if(machine_num == '14'):
                         if(results_dict['PartProgram'][1] == 1):
-                            keyence_string = 'CoverFace-1_625T'
+                            #keyence_string = 'CoverFace-1_625T'
+                            keyence_string = config_info['machine_1_1'] #machine num_face num
                         elif(results_dict['PartProgram'][1] == 2):
-                            keyence_string = 'CoverFace-2_625T'
+                            #keyence_string = 'CoverFace-2_625T'
+                            keyence_string = config_info['machine_1_2']
                         elif(results_dict['PartProgram'][1] == 3):
-                            keyence_string = 'IntakeFace_625T'
+                            #keyence_string = 'IntakeFace_625T'
+                            keyence_string = config_info['machine_1_3']
                         elif(results_dict['PartProgram'][1] == 4):
-                            keyence_string = 'FrontFace_625T'
+                            #keyence_string = 'FrontFace_625T'
+                            keyence_string = config_info['machine_1_4']
                         elif(results_dict['PartProgram'][1] == 5):
-                            keyence_string = 'CoverFace-1_675T'
+                            #keyence_string = 'CoverFace-1_675T'
+                            keyence_string = config_info['machine_1_5']
                         elif(results_dict['PartProgram'][1] == 6):
-                            keyence_string = 'CoverFace-2_675T'
+                            #keyence_string = 'CoverFace-2_675T'
+                            keyence_string = config_info['machine_1_6']
                         elif(results_dict['PartProgram'][1] == 7):
-                            keyence_string = 'IntakeFace_675T'
+                            #keyence_string = 'IntakeFace_675T'
+                            keyence_string = config_info['machine_1_7']
                         elif(results_dict['PartProgram'][1] == 8):
-                            keyence_string = 'FrontFace_675T'
+                            #keyence_string = 'FrontFace_675T'
+                            keyence_string = config_info['machine_1_8']
                         elif(results_dict['PartProgram'][1] == 9):
-                            keyence_string = 'CoverFace-1_45T3'
+                            #keyence_string = 'CoverFace-1_45T3'
+                            keyence_string = config_info['machine_1_9']
                         elif(results_dict['PartProgram'][1] == 10):
-                            keyence_string = 'CoverFace-2_45T3'
+                            #keyence_string = 'CoverFace-2_45T3'
+                            keyence_string = config_info['machine_1_10']
                         elif(results_dict['PartProgram'][1] == 11):
-                            keyence_string = 'IntakeFace_45T3'
+                            #keyence_string = 'IntakeFace_45T3'
+                            keyence_string = config_info['machine_1_11']
                         elif(results_dict['PartProgram'][1] == 12):
-                            keyence_string = 'FrontFace_45T3'
+                            #keyence_string = 'FrontFace_45T3'
+                            keyence_string = config_info['machine_1_12']
                     elif(machine_num == '15'):
                         if(results_dict['PartProgram'][1] == 1):
-                            keyence_string = 'DeckFace-1_625T'
+                            #keyence_string = 'DeckFace-1_625T'
+                            keyence_string = config_info['machine_2_1']
                         elif(results_dict['PartProgram'][1] == 2):
-                            keyence_string = 'DeckFace-2_625T'
+                            #keyence_string = 'DeckFace-2_625T'
+                            keyence_string = config_info['machine_2_2']
                         elif(results_dict['PartProgram'][1] == 3):
-                            keyence_string = 'ExhaustFace_625T'
+                            #keyence_string = 'ExhaustFace_625T'
+                            keyence_string = config_info['machine_2_3']
                         elif(results_dict['PartProgram'][1] == 4):
-                            keyence_string = 'RearFace_625T'
+                            #keyence_string = 'RearFace_625T'
+                            keyence_string = config_info['machine_2_4']
                         elif(results_dict['PartProgram'][1] == 5):
-                            keyence_string = 'DeckFace-1_675T'
+                            #keyence_string = 'DeckFace-1_675T'
+                            keyence_string = config_info['machine_2_5']
                         elif(results_dict['PartProgram'][1] == 6):
-                            keyence_string = 'DeckFace-2_675T'
+                            #keyence_string = 'DeckFace-2_675T'
+                            keyence_string = config_info['machine_2_6']
                         elif(results_dict['PartProgram'][1] == 7):
-                            keyence_string = 'ExhaustFace_675T'
+                            #keyence_string = 'ExhaustFace_675T'
+                            keyence_string = config_info['machine_2_7']
                         elif(results_dict['PartProgram'][1] == 8):
-                            keyence_string = 'RearFace_675T'
+                            #keyence_string = 'RearFace_675T'
+                            keyence_string = config_info['machine_2_8']
                         elif(results_dict['PartProgram'][1] == 9):
-                            keyence_string = 'DeckFace-1_45T3'
+                            #keyence_string = 'DeckFace-1_45T3'
+                            keyence_string = config_info['machine_2_9']
                         elif(results_dict['PartProgram'][1] == 10):
-                            keyence_string = 'DeckFace-2_45T3'
+                            #keyence_string = 'DeckFace-2_45T3'
+                            keyence_string = config_info['machine_2_10']
                         elif(results_dict['PartProgram'][1] == 11):
-                            keyence_string = 'ExhaustFace_45T3'
+                            #keyence_string = 'ExhaustFace_45T3'
+                            keyence_string = config_info['machine_2_11']
                         elif(results_dict['PartProgram'][1] == 12):
-                            keyence_string = 'RearFace_45T3'
+                            #keyence_string = 'RearFace_45T3'
+                            keyence_string = config_info['machine_2_12']
 
                     pun_str = intArray_to_str(results_dict['PUN'][1])
 
@@ -783,6 +812,12 @@ def cycle(machine_num, current_stage, config_info):
 
                         #check if we're ready to write out a parts results, PER PART
                         part_result = write_part_results(machine_num, part_result, results_dict, keyence_results, pun_str) #appends to result string, writes out file and clears string if on final scan of part
+                        if(machine_num == '14'):
+                            path = 'E:\\FTP\\' + config_info['keyence_1'] + '\\xg\\'
+                        elif(machine_num == '15'):
+                            path = 'E:\\FTP\\' + config_info['keyence_2'] + '\\xg\\'
+                        
+                        #file_cleanup(path)#14 days result/image cleanup
 
                         # Setting Chinmay's Keyence tag high
                         keyence_msg = 'MW,#PhoenixControlContinue,1\r\n'
@@ -882,7 +917,8 @@ def check_pause(machine_num):
 
 #sets PLC(Heartbeat) high every second to verify we're still running and communicating
 def heartbeat(machine_num):
-    with LogixDriver('120.57.42.114') as plc:
+    global config_info
+    with LogixDriver(config_info['plc_ip']) as plc:
         print(f'({machine_num}) Heartbeat thread connected to PLC. Writing \'Heartbeat\' high every 1 second\n')
         while(True):
             plc.write('Program:HM1450_VS' + machine_num + '.VPC1.I.Heartbeat', True)
@@ -895,12 +931,15 @@ def heartbeat(machine_num):
 
 # George's request for a .csv file per inspection
 def create_csv(machine_num, results, keyence_results, face_name, duration):
+    global config_info
     #E:\FTP\172.19.146.81\xg\result
     file_name = '' #empty string for .csv file name
     if(machine_num == '14'):
-        file_name = 'E:\\FTP\\172.19.145.80\\xg\\result'
+        #file_name = 'E:\\FTP\\172.19.145.80\\xg\\result'
+        file_name = 'E:\\FTP\\' + config_info['keyence_1'] +'\\xg\\result'
     elif(machine_num == '15'):
-        file_name = 'E:\\FTP\\172.19.146.81\\xg\\result'
+        #file_name = 'E:\\FTP\\172.19.146.81\\xg\\result'
+        file_name = 'E:\\FTP\\' + config_info['keyence_2'] +'\\xg\\result'
     file_name = file_name + '\\' + face_name + '.txt'
     with open(file_name, 'w', newline='') as f:
         f.write('PART_TYPE_2, ' + str(results['PartType'][1]) + '\n')
@@ -942,20 +981,25 @@ def create_csv(machine_num, results, keyence_results, face_name, duration):
 
 # Gerry's request to log all results per part in one continuous file
 def write_part_results(machine_num, part_result, results_dict, keyence_results, pun_str):
+    global config_info
     #print(f'({machine_num}) part_result : {part_result}\n')
     #print(f'({machine_num}) keyence_results : {keyence_results}\n')
     pun_str = pun_str.strip() # remove spaces
     pun_str = pun_str.rstrip('\\x00') # remove nulls
+
+    t = datetime.datetime.now()
+    s = t.strftime('%Y-%m-%d %H:%M:%S.%f') # stripping off decimal (ms)
+    dt_string = t.strftime("%Y-%m-%d") #datetime stamped file naming, year#-month#-day#
 
     if(machine_num == '14'):
         # designating end of part by part #, to write out actual line in .csv
         if((results_dict['PartProgram'][1] == 3) or (results_dict['PartProgram'][1] == 7) or (results_dict['PartProgram'][1] == 11)):
             part_result = part_result + str(keyence_results[3]) # final append to string before writing out to .txt file
             file_name = '' #empty string for .txt file name
-            file_name = 'E:\\part_results_consolidated\\machine_14.txt'
-            with open(file_name, 'a', newline='') as f:
-                t = datetime.datetime.now()
-                s = t.strftime('%Y-%m-%d %H:%M:%S.%f') # stripping off decimal (ms)
+            file_name = 'E:\\part_results_consolidated\\' + dt_string + '-machine_14.txt'
+            with open(file_name, 'a+', newline='') as f:
+                #t = datetime.datetime.now()
+                #s = t.strftime('%Y-%m-%d %H:%M:%S.%f') # stripping off decimal (ms)
                 f.write(s[:-4] + ', ')
                 f.write(pun_str + ', ')
                 f.write(part_result + '\n\n')
@@ -969,10 +1013,10 @@ def write_part_results(machine_num, part_result, results_dict, keyence_results, 
         if((results_dict['PartProgram'][1] % 4) == 0):
             part_result = part_result + str(keyence_results[3]) # final append to string before writing out to .txt file
             file_name = '' #empty string for .txt file name
-            file_name = 'E:\\part_results_consolidated\\machine_15.txt'
-            with open(file_name, 'a', newline='') as f:
-                t = datetime.datetime.now()
-                s = t.strftime('%Y-%m-%d %H:%M:%S.%f') # stripping off decimal (ms)
+            file_name = 'E:\\part_results_consolidated\\' + dt_string + '-machine_15.txt'
+            with open(file_name, 'a+', newline='') as f:
+                #t = datetime.datetime.now()
+                #s = t.strftime('%Y-%m-%d %H:%M:%S.%f') # stripping off decimal (ms)
                 f.write(s[:-4] + ', ')
                 f.write(pun_str + ', ')
                 f.write(part_result + '\n\n')
@@ -981,16 +1025,90 @@ def write_part_results(machine_num, part_result, results_dict, keyence_results, 
         else:
             part_result = part_result + str(keyence_results[3]) + ', ' # appending pass/fail data to part_result string if we're not @ end of the part
             return part_result
+
+    #file_cleanup('E:\\part_results_consolidated\\') #deleting old records if older than 14 days
+
+    '''
+    #checking if previous files are >2weeks old, delete if so
+    path = 'E:\\part_results_consolidated\\' #folder path
+    today = datetime.datetime.today()
+    os.chdir(path) #'cd' command to set path
+
+    for root,directories,files in os.walk(path,topdown=False):
+        for name in files:
+            #last modified time
+            mod_t = os.stat(os.path.join(root, name))[8]
+            filetime = datetime.datetime.fromtimestamp(t) - today
+            #checking if old (greater than two weeks, 14 days)
+            if filetime.days <= -14:
+                print(os.path.join(root,name), filetime.days)
+                os.remove(os.path.join(root,name))#actual file removal
+    '''
 #END write_part_results
 
+#deletes anything older than 14 days at the argument path (and below)
+def file_cleanup(path1, path2, path3):
+    while(True):
+        global config_info
+        global kill_threads
+        #break if other threads are having issues
+        if(kill_threads):
+            break
+        #path = 'E:\\part_results_consolidated\\' #folder path
+        today = datetime.datetime.today()
+        os.chdir(path1) #'cd' command to set path
+        age_check = int(config_info['file_age_check'])
+
+        for root,directories,files in os.walk(path1,topdown=False):
+            for name in files:
+                #last modified time
+                mod_t = os.stat(os.path.join(root, name))[8]
+                filetime = datetime.datetime.fromtimestamp(mod_t) - today
+                #checking if old (greater than two weeks, 14 days)
+                #if filetime.days <= -14:
+                if filetime.days <= -age_check:
+                    print(os.path.join(root,name), filetime.days)
+                    os.remove(os.path.join(root,name))#actual file removal
+        #end keyence_1 folder cleanup
+        today = datetime.datetime.today()
+        os.chdir(path2) #'cd' command to set path
+
+        for root,directories,files in os.walk(path2,topdown=False):
+            for name in files:
+                #last modified time
+                mod_t = os.stat(os.path.join(root, name))[8]
+                filetime = datetime.datetime.fromtimestamp(mod_t) - today
+                #checking if old (greater than two weeks, 14 days)
+                #if filetime.days <= -14:
+                if filetime.days <= -age_check:
+                    print(os.path.join(root,name), filetime.days)
+                    os.remove(os.path.join(root,name))#actual file removal
+        #end keyence_2 folder cleanup
+        today = datetime.datetime.today()
+        os.chdir(path3) #'cd' command to set path
+
+        for root,directories,files in os.walk(path3,topdown=False):
+            for name in files:
+                #last modified time
+                mod_t = os.stat(os.path.join(root, name))[8]
+                filetime = datetime.datetime.fromtimestamp(mod_t) - today
+                #checking if old (greater than two weeks, 14 days)
+                #if filetime.days <= -14:
+                if filetime.days <= -age_check:
+                    print(os.path.join(root,name), filetime.days)
+                    os.remove(os.path.join(root,name))#actual file removal
+        #end parts_consolidated folder cleanup
+        time.sleep(86400) #sleep for 1 day, or until thread is restarted
+#END file_cleanup
 
 #START main()
 def main():
     global current_stage_14 #keeps track of which stage program is currently in from the timing process
     global current_stage_15
     global kill_threads # signal to end threads if an exception is thrown
+    global config_info
 
-    config_info = {}
+    #config_info = {}
     config_info = read_config()
     print(config_info)
 
@@ -1000,11 +1118,14 @@ def main():
 
     # original threading tests
     
-    t1 = threading.Thread(target=cycle, args=['14', current_stage_14, config_info])
-    t2 = threading.Thread(target=cycle, args=['15', current_stage_15, config_info])
+    t1 = threading.Thread(target=cycle, args=['14', current_stage_14])
+    t2 = threading.Thread(target=cycle, args=['15', current_stage_15])
 
     t1_heartbeat = threading.Thread(target=heartbeat, args=['14'])
     t2_heartbeat = threading.Thread(target=heartbeat, args=['15'])
+
+    #file cleanup thread, paths hard-coded right now, could probably be redone as a list
+    t_file_cleanup = threading.Thread(target=file_cleanup, args=['E:\\FTP\\' + config_info['keyence_1'] + '\\xg\\', 'E:\\FTP\\' + config_info['keyence_1'] + '\\xg\\', 'E:\\part_results_consolidated\\'])
 
     kill_threads = False
     print("Starting Threads (14 & 15)...")
@@ -1017,10 +1138,15 @@ def main():
     t1_heartbeat.start()
     t2_heartbeat.start()
 
+    print("File Cleanup...")
+    t_file_cleanup.start()
+
+    #joining threads so they're not spammed, keeps them all sync'd up (max of 1 active at any time)
     t1.join()
     t2.join()
     t1_heartbeat.join()
     t2_heartbeat.join()
+    t_file_cleanup.join()
     
     #print('This code is beyond the threads!')
 
