@@ -465,7 +465,7 @@ def cycle(machine_num, current_stage, config_info):
                     if(machine_num == '1'):
                         if(results_dict['PART_PROGRAM'][1] == 1):
                             #keyence_string = 'Ring-Seal-Surface'
-                            keyence_string = config_info['machine_1_1']
+                            keyence_string = config_info['machine_1_1'] #machine num_face num
                             KeyenceSwapCheck(sock,machine_num,'1') # ensures Keyence has the correct program loaded
                         elif(results_dict['PART_PROGRAM'][1] == 2):
                             #keyence_string = 'Case-Mounting-1'
