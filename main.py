@@ -84,7 +84,6 @@ tagKeys = []
 for tag in arrayOutTags:
     tagKeys.append(tag.split("{")[0]) # delete trailiing { if it exists
 
-#order matters!
 tagCmds = [
     'LoadProgram',
     'EndProgram',
@@ -252,6 +251,8 @@ def write_plc_flush(plc, machine_num):
     )
 # end write_plc_flush
 
+
+### Data-Type Functions
 #used to verify values when writing back to PLC, 
 def protected_ord(value):
     if len(value) > 1:
