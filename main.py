@@ -349,7 +349,6 @@ def TriggerKeyence(sock, machine_num, item):
     # looping until '%Busy' == 0
     while(data != b'MR,+0000000001.000000\r'):
     #while(data != b'T1\r'):
-        # utilizing 'with' to use thread lock
         #message = 'T1\r\n'
         message = 'MR,%Busy\r\n'
         sock.sendall(message.encode())
@@ -393,7 +392,7 @@ def ExtKeyence(sock):
     data = sock.recv(32)
     #print('received "%s"' % data)
 
-    message = 'MR,%Busy\r\n' #initial read of '%Busy' to ensure scan is actually taking place (%Busy == 1)
+    message = 'MR,%Busy\r\n' #read of '%Busy' to ensure scan has ended (should be 0)
     sock.sendall(message.encode())
     data = sock.recv(32)
     #print(f'%Busy = {data}')
